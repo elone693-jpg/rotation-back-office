@@ -59,3 +59,18 @@ node tests/rotation.test.mjs
 ## Publier une mise à jour
 
 Republier `index.html` sur l'URL de l'artifact ci-dessus, avec l'outil Artifact de Claude en passant cette `url`, sans redéclarer les capabilities. Les données de la base sont conservées.
+
+## Rappel par mail (17 h, jours ouvrés)
+
+Une tâche planifiée de l'app Claude (`rappel-back-office`) fait chaque jour ouvré :
+1. elle exporte la base de l'outil ;
+2. elle lance le script :
+   ```bash
+   node scripts/rappel.mjs <dossier-export>
+   ```
+3. elle envoie le résultat par Gmail à l'adresse du propriétaire.
+
+Pour tester sans envoyer, à une date choisie :
+```bash
+node scripts/rappel.mjs <dossier-export> 2026-10-09
+```

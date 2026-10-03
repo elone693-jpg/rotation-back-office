@@ -391,7 +391,7 @@ const addDays=(s,n)=>{const d=parse(s);d.setDate(d.getDate()+n);return iso(d)};
 const weekday=s=>(parse(s).getDay()+6)%7;
 const monday=s=>addDays(s,-weekday(s));
 const ordinal=s=>{const[y,m,d]=s.split('-').map(Number);return Math.round(Date.UTC(y,m-1,d)/864e5)};
-const TODAY=iso(new Date());
+const TODAY=globalThis.__TODAY__||iso(new Date()); // __TODAY__ : date imposée par les scripts (rappel, tests)
 const CUR=()=>weekday(TODAY)>4?addDays(monday(TODAY),7):monday(TODAY);
 const DN=['Lun','Mar','Mer','Jeu','Ven'];
 const DNL=['Lundi','Mardi','Mercredi','Jeudi','Vendredi'];

@@ -1,18 +1,9 @@
 // Tests du moteur de rotation : node tests/rotation.test.mjs
 // Le script de index.html est extrait et exécuté avec un DOM minimal, sans navigateur.
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
+import { loadEngine } from '../scripts/engine.mjs';
 
-const html = readFileSync(fileURLToPath(new URL('../index.html', import.meta.url)), 'utf8');
-let js = html.match(/<script>([\s\S]*)<\/script>/)[1];
-js = js.replace('/* ---------- démarrage', 'globalThis.__t={compute,state,defaults,dutyIds,recLabel,parseBulk,vMoi,checklist,canTick,tick,progress,myCollab,ui,riskDays,vActivite,vAbsences,vPlanning,vEquipe,vReglages};return;/*');
-const el = { innerHTML: '', contains: () => false, className: '', addEventListener() {} };
-globalThis.document = { querySelector: () => el, addEventListener() {}, activeElement: null };
-const store = new Map();
-globalThis.localStorage = { getItem: k => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)), removeItem: k => store.delete(k) };
-new Function(js)();
-const { compute, state, defaults, dutyIds, recLabel, parseBulk, vMoi, checklist, canTick, tick, progress, myCollab, ui, riskDays, vActivite, vAbsences, vPlanning, vEquipe, vReglages } = globalThis.__t;
+const { compute, state, defaults, dutyIds, recLabel, parseBulk, vMoi, checklist, canTick, tick, progress, myCollab, ui, riskDays, vActivite, vAbsences, vPlanning, vEquipe, vReglages, store } = loadEngine();
 
 function reset() {
   Object.assign(state, defaults());
