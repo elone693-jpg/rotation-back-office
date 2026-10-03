@@ -2,18 +2,27 @@
 
 Application autonome (PWA) de planification du back office de l'agence, pour iPhone et Mac. Chaque jour ouvré, une personne est « de back office » et assure tout le programme : mails de l'agence, alertes de départs et boîte mail du personnel le matin, émission d'appels l'après-midi.
 
+- **Adresse : https://elone693-jpg.github.io/rotation-back-office/**
 - Fichiers du site : `index.html`, `sw.js` (hors connexion), `manifest.webmanifest`, `icons/`
 - Données : sur chaque appareil (stockage du navigateur). Synchronisation par le fichier `rotation-back-office.json`, dans iCloud Drive › Rotation back office.
 - Aucun serveur, aucun compte : le site ne contient aucune donnée de l'agence.
 
 ## Mise en ligne sur GitHub Pages
 
-1. Sur github.com, créer un dépôt **public** `rotation-back-office`.
-2. Y déposer le contenu de ce dossier (*Add file › Upload files*, glisser tous les fichiers et le dossier `icons`), ou pousser avec git.
-3. *Settings › Pages* : Source « Deploy from a branch », branche `main`, dossier `/ (root)`.
-4. L'adresse est `https://<identifiant>.github.io/rotation-back-office/`.
+Dépôt : https://github.com/elone693-jpg/rotation-back-office (GitHub Pages servi depuis la branche `main`, à la racine).
 
-Pour chaque nouvelle version : modifier `VERSION` dans `sw.js`, puis redéposer les fichiers. Les appareils prennent la mise à jour à l'ouverture suivante.
+Pour publier une nouvelle version :
+1. Modifier `VERSION` dans `sw.js`.
+2. Lancer les tests :
+   ```bash
+   node tests/rotation.test.mjs
+   ```
+3. Envoyer sur GitHub :
+   ```bash
+   git push
+   ```
+
+Les appareils prennent la mise à jour à l'ouverture suivante.
 
 ## Installation
 
