@@ -1,9 +1,33 @@
 # Rotation back office
 
-Outil de planification du back office de l'agence. Chaque jour ouvré, une personne est « de back office » et assure tout le programme : mails de l'agence, alertes de départs et boîte mail du personnel le matin, émission d'appels l'après-midi.
+Application autonome (PWA) de planification du back office de l'agence, pour iPhone et Mac. Chaque jour ouvré, une personne est « de back office » et assure tout le programme : mails de l'agence, alertes de départs et boîte mail du personnel le matin, émission d'appels l'après-midi.
 
-- Page publiée : https://claude.ai/artifact/MoF2yh1FXp6KNS9UYRQ1en
-- Source : `index.html` (page autonome : HTML, CSS et JavaScript, sans dépendance)
+- Fichiers du site : `index.html`, `sw.js` (hors connexion), `manifest.webmanifest`, `icons/`
+- Données : sur chaque appareil (stockage du navigateur). Synchronisation par le fichier `rotation-back-office.json`, dans iCloud Drive › Rotation back office.
+- Aucun serveur, aucun compte : le site ne contient aucune donnée de l'agence.
+
+## Mise en ligne sur GitHub Pages
+
+1. Sur github.com, créer un dépôt **public** `rotation-back-office`.
+2. Y déposer le contenu de ce dossier (*Add file › Upload files*, glisser tous les fichiers et le dossier `icons`), ou pousser avec git.
+3. *Settings › Pages* : Source « Deploy from a branch », branche `main`, dossier `/ (root)`.
+4. L'adresse est `https://<identifiant>.github.io/rotation-back-office/`.
+
+Pour chaque nouvelle version : modifier `VERSION` dans `sw.js`, puis redéposer les fichiers. Les appareils prennent la mise à jour à l'ouverture suivante.
+
+## Installation
+
+- **iPhone** : ouvrir l'adresse dans Safari › Partager › *Sur l'écran d'accueil*.
+- **Mac** : Safari › Fichier › *Ajouter au Dock* (ou Chrome › Installer l'application).
+
+Au premier lancement : *Récupérer depuis iCloud* et choisir `rotation-back-office.json`.
+
+## Synchronisation (bouton « Synchroniser »)
+
+1. **Récupérer** : choisir le fichier dans iCloud Drive › Rotation back office. La fusion garde, élément par élément, la version la plus récente, et les suppressions se propagent.
+2. **Enregistrer** : iPhone › *Enregistrer dans Fichiers* › même dossier › *Remplacer*. Mac : enregistrer dans ce dossier.
+
+Toujours récupérer avant d'enregistrer. Chaque document porte `_t` (horodatage de dernière modification), et les suppressions sont gardées dans `tomb`.
 
 ## Fonctionnement de la rotation
 
@@ -18,37 +42,21 @@ Outil de planification du back office de l'agence. Chaque jour ouvré, une perso
 - **Doublure** : un nouveau collaborateur accompagne son tuteur jusqu'à une date, puis entre dans la rotation.
 - **Jours à risque** : effectif présent (1 par journée, 0,5 par demi-journée) sous le seuil, ou back office non couvert, sur 3 mois.
 
-## Données (base partagée de la page)
+## Données
 
 | Collection | Contenu |
 |---|---|
-| `equipe/<id>` | `nom`, `couleur`, `actif`, `debut`, `fin`, `ordre`, `eviter` (jours 0-4), `doublure` `{tuteur, jusqu}`, `compte` |
+| `equipe/<id>` | `nom`, `couleur`, `actif`, `debut`, `fin`, `ordre`, `eviter` (jours 0-4), `doublure` `{tuteur, jusqu}` |
 | `taches/<id>` | `nom`, `desc`, `creneau` (`matin` ou `apresmidi`), `ordre` |
 | `absences/<id>` | `collab`, `du`, `au` (vide = sans fin), `type`, `portion` (`journee`, `matin` ou `apresmidi`), `note`, `rec` (récurrence, optionnel) |
 | `affectations/<lundi>` | `cells[date] = {ids, mode: 'echange' ou 'decale'}` |
 | `ordres/<date>` | `{depuis, ordre: [ids]}` |
 | `reglages/general` | `debut`, `feries`, `parJour`, `seuil` (effectif minimum), `pasDeSuite` |
 | `journal/<date>` | checklist du jour : `done[tacheId] = {at: 'HH:MM', by: userId}`, `vol[tacheId]` (volume traité), `cpt` `{md, mf}` (mails en début / fin de journée), `note`. Le compteur App. (appels émis) du Planning écrit dans `vol` de la tâche d'appels |
-| `liens/<userId>` | nom déclaré par le collègue lui-même : `{collab}` (le lien posé par le manager est `equipe.compte`) |
 
 Récurrence `rec` :
 - `{freq:'hebdo', jours:[0-4], tous:1|2}` : 0 = lundi, `tous:2` = une semaine sur deux à partir de `du` ;
 - `{freq:'mensuel', rang:1-5, jour:0-4}` : `rang:5` = dernier du mois.
-
-## Droits
-
-Règles d'accès de la base :
-
-| Chemin | Lecture | Écriture |
-|---|---|---|
-| tout (racine) | view | admin |
-| `journal` | view | interact |
-| `liens` | view | admin |
-| `liens/{self}` | | interact |
-
-- **Manager** : à partager en *Éditeur*. Il peut tout modifier.
-- **Collaborateurs** : à partager en *Contributeur*. Ils consultent le planning, cochent leur checklist le jour où ils sont de back office et déclarent leur propre nom.
-- *Lecteur* : consultation seule (l'identité est alors retenue dans le navigateur).
 
 ## Tests
 
@@ -56,21 +64,21 @@ Règles d'accès de la base :
 node tests/rotation.test.mjs
 ```
 
-## Publier une mise à jour
-
-Republier `index.html` sur l'URL de l'artifact ci-dessus, avec l'outil Artifact de Claude en passant cette `url`, sans redéclarer les capabilities. Les données de la base sont conservées.
-
 ## Rappel par mail (17 h, jours ouvrés)
 
-Une tâche planifiée de l'app Claude (`rappel-back-office`) fait chaque jour ouvré :
-1. elle exporte la base de l'outil ;
-2. elle lance le script :
-   ```bash
-   node scripts/rappel.mjs <dossier-export>
-   ```
-3. elle envoie le résultat par Gmail à l'adresse du propriétaire.
+Une tâche planifiée de l'app Claude (`rappel-back-office`) lance chaque jour ouvré :
+```bash
+node scripts/rappel.mjs
+```
+Le script lit le fichier le plus récent d'iCloud Drive › Rotation back office, puis la tâche envoie le résultat par Gmail au propriétaire. Le rappel est donc aussi à jour que le dernier enregistrement fait depuis l'application.
 
 Pour tester sans envoyer, à une date choisie :
 ```bash
-node scripts/rappel.mjs <dossier-export> 2026-10-09
+node scripts/rappel.mjs "<fichier ou dossier>" 2026-10-09
+```
+
+## Icônes
+
+```bash
+python3 scripts/icones.py
 ```

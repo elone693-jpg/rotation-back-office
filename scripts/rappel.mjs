@@ -1,23 +1,31 @@
-// Prépare le mail de rappel de la veille à partir d'un export de la base de l'outil.
-// Usage : node scripts/rappel.mjs <dossier-export> [date-du-jour AAAA-MM-JJ]
-// Le dossier contient <collection>/<id>.json (export ArtifactData avec out_dir).
+// Prépare le mail de rappel de la veille à partir des données de l'application.
+// Usage : node scripts/rappel.mjs [source] [date-du-jour AAAA-MM-JJ]
+// source : le fichier rotation-back-office.json, ou un dossier qui en contient (le plus récent est pris).
+// Par défaut : iCloud Drive › Rotation back office. Le lien vers l'app vient de RBO_URL (optionnel).
 // Sortie : JSON {envoyer, sujet, texte} sur la sortie standard.
-import { readdirSync, readFileSync, existsSync } from 'node:fs';
+import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { homedir } from 'node:os';
 import { loadEngine } from './engine.mjs';
 
-const [dir, today] = process.argv.slice(2);
-if (!dir) { console.error('Usage : node scripts/rappel.mjs <dossier-export> [AAAA-MM-JJ]'); process.exit(1); }
+const DEFAUT = join(homedir(), 'Library/Mobile Documents/com~apple~CloudDocs/Rotation back office');
+const [src = DEFAUT, today] = process.argv.slice(2);
+
+function trouverFichier(p) {
+  if (!existsSync(p)) return null;
+  if (statSync(p).isFile()) return p;
+  const cands = readdirSync(p).filter(f => /^rotation-back-office.*\.json$/.test(f)).map(f => join(p, f));
+  const lus = cands.map(f => { try { return { f, t: Date.parse(JSON.parse(readFileSync(f, 'utf8')).exportedAt) || 0 }; } catch { return null; } }).filter(Boolean);
+  lus.sort((a, b) => b.t - a.t);
+  return lus[0]?.f || null;
+}
+const fichier = trouverFichier(src);
+if (!fichier) { console.log(JSON.stringify({ envoyer: false, raison: `aucun fichier de données dans ${src}` })); process.exit(0); }
+const payload = JSON.parse(readFileSync(fichier, 'utf8'));
 
 const E = loadEngine({ today });
 const COLS = ['equipe', 'taches', 'absences', 'affectations', 'reglages', 'ordres', 'journal'];
-for (const col of COLS) {
-  const p = join(dir, col);
-  E.state[col] = {};
-  if (!existsSync(p)) continue;
-  for (const f of readdirSync(p).filter(f => f.endsWith('.json')))
-    E.state[col][f.slice(0, -5)] = JSON.parse(readFileSync(join(p, f), 'utf8'));
-}
+for (const col of COLS) E.state[col] = payload.data?.[col] || {};
 if (!Object.keys(E.state.equipe).length) { console.log(JSON.stringify({ envoyer: false, raison: 'export vide' })); process.exit(0); }
 
 const T = E.TODAY, C = E.byId(), nom = id => C[id]?.nom || '?';
@@ -52,6 +60,8 @@ if (risques.length) {
   lignes.push('', 'Jours à risque dans les 2 semaines :');
   for (const r of risques) lignes.push(`- ${jour(r.d)} : ${r.level === 'crit' ? 'back office non couvert' : `${String(r.eff).replace('.', ',')} présent${r.eff > 1 ? 's' : ''}`}`);
 }
-lignes.push('', 'Planning : https://claude.ai/artifact/MoF2yh1FXp6KNS9UYRQ1en');
+const ageJ = Math.round((Date.now() - Date.parse(payload.exportedAt)) / 864e5);
+if (ageJ >= 2) lignes.push('', `Données synchronisées il y a ${ageJ} jours : pensez à enregistrer depuis l'application pour un rappel à jour.`);
+if (process.env.RBO_URL) lignes.push('', `Application : ${process.env.RBO_URL}`);
 
 console.log(JSON.stringify({ envoyer: true, sujet: `Back office ${jour(cible)} : ${titre}`, texte: lignes.join('\n') }, null, 2));

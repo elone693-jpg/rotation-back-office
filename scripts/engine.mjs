@@ -6,7 +6,7 @@ export function loadEngine({ today } = {}) {
   const html = readFileSync(fileURLToPath(new URL('../index.html', import.meta.url)), 'utf8');
   let js = html.match(/<script>([\s\S]*)<\/script>/)[1];
   js = js.replace('/* ---------- démarrage',
-    'globalThis.__t={compute,state,defaults,dutyIds,recLabel,parseBulk,vMoi,checklist,canTick,tick,progress,myCollab,ui,riskDays,effMap,vActivite,vAbsences,vPlanning,vEquipe,vReglages,taches,collabs,byId,nextWorkday,journal,cptGet,cptSet,TODAY,DNL,short,addDays,weekday};return;/*');
+    'globalThis.__t={compute,state,defaults,dutyIds,recLabel,parseBulk,vMoi,checklist,canTick,tick,progress,myCollab,ui,riskDays,effMap,vActivite,vAbsences,vPlanning,vEquipe,vReglages,taches,collabs,byId,nextWorkday,journal,cptGet,cptSet,put,del,meta,mergePayload,exportPayload,TODAY,DNL,short,addDays,weekday};return;/*');
   const el = { innerHTML: '', contains: () => false, className: '', addEventListener() {}, querySelector: () => null, querySelectorAll: () => [] };
   const store = new Map();
   globalThis.document = { querySelector: () => el, addEventListener() {}, activeElement: null, getElementById: () => null };

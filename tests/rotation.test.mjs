@@ -15,7 +15,8 @@ const week = (from = '2026-10-05', to = '2026-10-09') =>
   Object.values(compute(from, to)).map(d => (d.ferie ? '--' : dutyIds(d).join('+')));
 
 let n = 0;
-const test = (name, fn) => { reset(); fn(); n++; console.log('ok -', name); };
+const pending = [];
+const test = (name, fn) => { pending.push([name, fn]); };
 
 test('rotation régulière, une personne par jour', () => {
   assert.deepEqual(week(), ['c3', 'c4', 'c1', 'c2', 'c3']);
@@ -146,4 +147,29 @@ test('compteurs du jour : mails début/fin et appels partagés avec la checklist
   assert.match(vActivite(), /M-déb/);
   assert.match(vPlanning(), /data-cpt="md"/);
 });
+test('synchro : fusion document par document, suppressions propagées', async () => {
+  const E2 = globalThis.__t;
+  // appareil A : état de départ exporté
+  await E2.put('absences', 'x1', { collab: 'c1', du: '2026-11-02', au: '2026-11-02', type: 'conge', portion: 'journee' });
+  await E2.put('absences', 'x2', { collab: 'c2', du: '2026-11-03', au: '2026-11-03', type: 'rtt', portion: 'journee' });
+  const fichierA = JSON.parse(JSON.stringify(E2.exportPayload()));
+  // appareil B (même départ) : modifie x1 plus tard, supprime x2, ajoute x3
+  await new Promise(r => setTimeout(r, 5));
+  await E2.put('absences', 'x1', { ...state.absences.x1, note: 'modifié sur B' });
+  await E2.del('absences', 'x2');
+  await E2.put('absences', 'x3', { collab: 'c3', du: '2026-11-04', au: '2026-11-04', type: 'conge', portion: 'journee' });
+  const fichierB = JSON.parse(JSON.stringify(E2.exportPayload()));
+  // retour sur A : on recharge l'état A puis on fusionne le fichier B
+  for (const col of Object.keys(fichierA.data)) state[col] = JSON.parse(JSON.stringify(fichierA.data[col]));
+  E2.meta.tomb = {};
+  const n = E2.mergePayload(fichierB);
+  assert.equal(state.absences.x1.note, 'modifié sur B', 'version la plus récente gardée');
+  assert.ok(!state.absences.x2, 'suppression propagée');
+  assert.ok(state.absences.x3, 'ajout récupéré');
+  assert.equal(n, 3);
+  // refusionner le même fichier ne change rien
+  assert.equal(E2.mergePayload(fichierB), 0);
+  assert.throws(() => E2.mergePayload({ foo: 1 }), /application/);
+});
+for (const [name, fn] of pending) { reset(); await fn(); n++; console.log('ok -', name); }
 console.log(`\n${n} tests réussis`);
