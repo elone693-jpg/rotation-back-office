@@ -25,6 +25,8 @@ Outil de planification du back office de l'agence. Chaque jour ouvré, une perso
 | `affectations/<lundi>` | `cells[date] = {ids, mode: 'echange' ou 'decale'}` |
 | `ordres/<date>` | `{depuis, ordre: [ids]}` |
 | `reglages/general` | `debut`, `feries`, `parJour` |
+| `journal/<date>` | checklist du jour : `done[tacheId] = {at: 'HH:MM', by: userId}`, `note` |
+| `liens/<userId>` | nom déclaré par le collègue lui-même : `{collab}` (le lien posé par le manager est `equipe.compte`) |
 
 Récurrence `rec` :
 - `{freq:'hebdo', jours:[0-4], tous:1|2}` : 0 = lundi, `tous:2` = une semaine sur deux à partir de `du` ;
@@ -32,10 +34,18 @@ Récurrence `rec` :
 
 ## Droits
 
-La règle d'accès de la base est `read: view`, `write: admin` :
+Règles d'accès de la base :
+
+| Chemin | Lecture | Écriture |
+|---|---|---|
+| tout (racine) | view | admin |
+| `journal` | view | interact |
+| `liens` | view | admin |
+| `liens/{self}` | | interact |
 
 - **Manager** : à partager en *Éditeur*. Il peut tout modifier.
-- **Collaborateurs** : à partager en *Lecteur* ou *Contributeur*. Ils consultent seulement.
+- **Collaborateurs** : à partager en *Contributeur*. Ils consultent le planning, cochent leur checklist le jour où ils sont de back office et déclarent leur propre nom.
+- *Lecteur* : consultation seule (l'identité est alors retenue dans le navigateur).
 
 ## Tests
 

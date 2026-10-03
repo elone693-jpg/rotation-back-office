@@ -6,17 +6,19 @@ import assert from 'node:assert/strict';
 
 const html = readFileSync(fileURLToPath(new URL('../index.html', import.meta.url)), 'utf8');
 let js = html.match(/<script>([\s\S]*)<\/script>/)[1];
-js = js.replace('/* ---------- démarrage', 'globalThis.__t={compute,state,defaults,dutyIds,recLabel,parseBulk};return;/*');
+js = js.replace('/* ---------- démarrage', 'globalThis.__t={compute,state,defaults,dutyIds,recLabel,parseBulk,vMoi,checklist,canTick,tick,progress,myCollab,ui};return;/*');
 const el = { innerHTML: '', contains: () => false, className: '', addEventListener() {} };
 globalThis.document = { querySelector: () => el, addEventListener() {}, activeElement: null };
-globalThis.localStorage = { getItem: () => null, setItem() {} };
+const store = new Map();
+globalThis.localStorage = { getItem: k => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)), removeItem: k => store.delete(k) };
 new Function(js)();
-const { compute, state, defaults, dutyIds, recLabel, parseBulk } = globalThis.__t;
+const { compute, state, defaults, dutyIds, recLabel, parseBulk, vMoi, checklist, canTick, tick, progress, myCollab } = globalThis.__t;
 
 function reset() {
   Object.assign(state, defaults());
   state.reglages.general.debut = '2026-09-21';
-  state.absences = {}; state.affectations = {}; state.ordres = {};
+  state.absences = {}; state.affectations = {}; state.ordres = {}; state.liens = {}; state.journal = {};
+  store.clear();
 }
 const week = (from = '2026-10-05', to = '2026-10-09') =>
   Object.values(compute(from, to)).map(d => (d.ferie ? '--' : dutyIds(d).join('+')));
@@ -79,5 +81,29 @@ test('saisie groupée : lignes valides, erreurs et doublons', () => {
   assert.ok(r[0].dup);
   assert.equal(r[1].type, 'rtt'); assert.equal(r[1].portion, 'matin');
   assert.ok(r[2].err);
+});
+test('mon planning : choix du nom puis prochains tours', () => {
+  assert.match(vMoi(), /Qui êtes-vous/);
+  localStorage.setItem('rotation-bo-v1-moi', 'c2');
+  assert.equal(myCollab(), 'c2');
+  const html = vMoi();
+  assert.match(html, /Bonjour Collaborateur 2/);
+  assert.match(html, /Mes prochains tours/);
+});
+test('checklist : cocher une tâche met à jour la progression', () => {
+  const d = '2026-10-05';
+  const total = progress(d).total;
+  assert.equal(progress(d).n, 0);
+  tick(d, 't_mails', true);
+  assert.equal(progress(d).n, 1);
+  assert.match(state.journal[d].done.t_mails.at, /^\d\d:\d\d$/);
+  tick(d, 't_mails', false);
+  assert.equal(progress(d).n, 0);
+  assert.equal(total, 4);
+  assert.match(checklist(d), /Programme du jour/);
+});
+test('checklist : seul le manager ou la personne du jour peut cocher', () => {
+  const futur = '2099-01-05';
+  assert.equal(canTick(futur, compute(futur, futur)[futur]), false, 'jamais dans le futur');
 });
 console.log(`\n${n} tests réussis`);

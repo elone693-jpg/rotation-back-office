@@ -289,6 +289,47 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);
 .dp span{display:inline-grid;place-items:center;min-width:48px;padding:7px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-weight:600;font-size:.85rem;color:var(--muted)}
 .dp input:checked+span{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .dp input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+.flag.ok{background:var(--accent-soft);color:var(--accent)}
+.check-card{gap:12px}
+.prog{display:flex;align-items:center;gap:10px}
+.prog .track{width:120px;height:8px;border-radius:99px;background:var(--surface-2);overflow:hidden}
+.prog .track i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--brand),var(--accent));transition:width .3s}
+.todo-group{display:grid;gap:6px}
+.todo{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;cursor:pointer;background:var(--surface);position:relative}
+.todo input{position:absolute;opacity:0;width:1px;height:1px}
+.todo .tick{width:22px;height:22px;border-radius:7px;border:2px solid var(--line);display:grid;place-items:center;transition:all .15s}
+.todo input:checked~.tick{background:var(--accent);border-color:var(--accent)}
+.todo input:checked~.tick::after{content:"";width:6px;height:11px;border:solid var(--accent-ink);border-width:0 2.5px 2.5px 0;transform:translateY(-1px) rotate(45deg)}
+.todo input:focus-visible~.tick{outline:2px solid var(--accent);outline-offset:2px}
+.todo input:disabled~.tick{opacity:.6}
+.todo:has(input:disabled){cursor:default}
+.todo.done{background:var(--accent-soft);border-color:transparent}
+.todo.done .tx b{text-decoration:line-through;text-decoration-color:color-mix(in oklab,var(--ink) 40%,transparent)}
+.todo .tx{display:grid;min-width:0}
+.todo .tx small{color:var(--muted);font-size:.8rem}
+.todo .when{font-size:.78rem;color:var(--accent);font-weight:600;white-space:nowrap}
+.jnote{background:var(--surface-2);border-radius:12px;padding:10px 12px}
+.me-head{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+.me-head>div{flex:1 1 260px;min-width:0}
+.avatar.big{width:56px;height:56px;font-size:1.05rem}
+.hl{color:var(--accent)}
+.minis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+@media (max-width:520px){.minis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.mini{border:1px solid var(--line);border-radius:12px;padding:8px 10px;display:grid;gap:2px;font-size:.84rem;min-width:0}
+.mini.bo-day{background:linear-gradient(135deg,var(--brand),var(--accent));color:var(--accent-ink);border-color:transparent}
+.mini.bo-day .eyebrow{color:inherit;opacity:.85}
+.mini.abs-day{background:var(--info-soft);color:var(--info);border-color:transparent}
+.mini.off{opacity:.55}
+.mini.is-today{box-shadow:0 0 0 2px var(--brand-red)}
+.turnlist{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.turnlist li{display:flex;gap:10px;align-items:center;padding:7px 10px;border-radius:10px;background:var(--surface-2);flex-wrap:wrap}
+.pick-me{display:flex;flex-wrap:wrap;gap:8px}
+.btn.pick{padding:4px 12px 4px 4px}
+.acct-box{position:relative;max-width:360px}
+.acct-res{display:grid;gap:2px;margin-top:4px}
+.acct-hit{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:6px 8px;cursor:pointer;text-align:left}
+.acct-hit:hover{border-color:var(--accent);background:var(--accent-soft)}
+.acct-hit img{width:24px;height:24px;border-radius:50%}
 </style>
 
 <div class="wrap">
@@ -363,11 +404,11 @@ function defaults(){
 }
 
 /* ---------- état et stockage ---------- */
-const COLS=['equipe','taches','absences','affectations','reglages','ordres'];
-const state={equipe:{},taches:{},absences:{},affectations:{},reglages:{},ordres:{}};
+const COLS=['equipe','taches','absences','affectations','reglages','ordres','liens','journal'];
+const state={equipe:{},taches:{},absences:{},affectations:{},reglages:{},ordres:{},liens:{},journal:{}};
 let mode='init', db=null, canWrite=true, loaded=new Set();
 const LS='rotation-bo-v1';
-const ui={tab:'planning',week:CUR(),view:'poste',eqPeriod:'4w'};
+const ui={tab:'moi',week:CUR(),view:'poste',eqPeriod:'4w'};
 try{Object.assign(ui,JSON.parse(localStorage.getItem(LS+'-ui')||'{}'));ui.week=CUR()}catch(e){}
 const saveUi=()=>{try{localStorage.setItem(LS+'-ui',JSON.stringify({tab:ui.tab,view:ui.view,eqPeriod:ui.eqPeriod,absMode:ui.absMode}))}catch(e){}};
 
@@ -492,23 +533,146 @@ function compute(from,to){
 function cellOf(d){const c=((state.affectations[monday(d)]||{}).cells||{})[d];if(!c)return null;if(Array.isArray(c))return {ids:c,mode:'decale'};return {ids:c.ids||[],mode:c.mode||'decale'}}
 const dutyIds=day=>[...new Set([...day.matin,...day.apresmidi])];
 
+/* ---------- identité du visiteur ---------- */
+let userNs=null,myId=null;const names={};
+function myCollab(){
+  const team=collabs();
+  if(myId){const linked=team.find(c=>c.compte===myId);if(linked)return linked.id;
+    const l=state.liens[myId];if(l&&state.equipe[l.collab])return l.collab}
+  let loc=null;try{loc=localStorage.getItem(LS+'-moi')}catch(e){}
+  return loc&&state.equipe[loc]?loc:null;
+}
+const linkedByManager=()=>!!(myId&&collabs().some(c=>c.compte===myId));
+async function claimMe(cid){
+  if(myId&&mode==='db'){
+    try{if(cid)await db.collection('liens').doc(myId).set({collab:cid});else await db.collection('liens').doc(myId).delete();
+      try{localStorage.removeItem(LS+'-moi')}catch(e){}return}catch(e){}
+  }
+  try{if(cid)localStorage.setItem(LS+'-moi',cid);else localStorage.removeItem(LS+'-moi')}catch(e){}
+  render();
+}
+async function resolveNames(){
+  if(!userNs)return;
+  const ids=[...new Set([...collabs().map(c=>c.compte).filter(Boolean),...Object.keys(state.liens),...Object.values(state.journal).flatMap(j=>Object.values(j.done||{}).map(x=>x.by)).filter(Boolean)])];
+  if(!ids.length)return;
+  const ps=await userNs.profiles(ids);let changed=false;
+  for(const id of ids){const n=ps[id]?.name||'';if(names[id]!==n){names[id]=n;changed=true}}
+  if(changed)render();
+}
+
+/* ---------- checklist du jour ---------- */
+const journal=d=>state.journal[d]||{done:{},note:''};
+let jChain=Promise.resolve();
+function jput(d,data){
+  state.journal={...state.journal,[d]:data};render();
+  if(mode!=='db'){localSave();return}
+  jChain=jChain.then(()=>db.collection('journal').doc(d).set(data)).catch(e=>{
+    toast(e&&e.code==='invalid_argument'?'Votre accès ne permet pas de cocher : demandez au manager un accès Contributeur.':"Enregistrement impossible pour l'instant. Réessayez.")});
+}
+function canTick(d,P){
+  if(d>TODAY||!P||P.ferie)return false;
+  if(canWrite)return true;
+  const me=myCollab();return d===TODAY&&!!me&&dutyIds(P).includes(me);
+}
+function progress(d){const ts=taches(),j=journal(d);const n=ts.filter(t=>j.done?.[t.id]).length;return {n,total:ts.length}}
+function checklist(d,opts={}){
+  const P=compute(d,d)[d],C=byId(),ts=taches(),j=journal(d);
+  if(!P)return '';
+  if(P.ferie)return `<div class="panel check-card"><h3>${opts.title||'Programme du jour'}</h3><p class="muted">Jour férié (${esc(P.ferie)}) : pas de back office.</p></div>`;
+  const can=canTick(d,P),{n,total}=progress(d),who=dutyIds(P);
+  const nm=id=>id&&names[id]?names[id]:'';
+  const items=SLOTS.map(sl=>{const mine=slotTasks(ts,sl.id);if(!mine.length)return '';
+    const doer=P[sl.id];
+    return `<div class="todo-group"><div class="eyebrow">${sl.label}${P.relais&&doer.length?' · '+esc(doer.map(id=>C[id]?.nom).join(', ')):''}</div>${mine.map(t=>{const x=j.done?.[t.id];
+      return `<label class="todo ${x?'done':''}"><input type="checkbox" data-todo="${t.id}" data-d="${d}" ${x?'checked':''} ${can?'':'disabled'}><span class="tick" aria-hidden="true"></span><span class="tx"><b>${esc(t.nom)}</b>${t.desc?`<small>${esc(t.desc)}</small>`:''}</span><span class="when">${x?`Fait à ${esc(x.at)}${nm(x.by)?' · '+esc(nm(x.by)):''}`:''}</span></label>`}).join('')}</div>`}).join('');
+  const pct=total?Math.round(n/total*100):0;
+  return `<div class="panel check-card">
+    <div class="section-title"><div><h3>${opts.title||'Programme du jour'}</h3><p class="muted" style="font-size:.85rem">${DNL[weekday(d)]} ${short(d)} · ${who.length?'de back office : '+esc(who.map(id=>C[id]?.nom).join(', ')):'personne de back office'}</p></div>
+      <div class="prog"><span class="mono"><b>${n}</b>/${total}</span><span class="track"><i style="width:${pct}%"></i></span></div></div>
+    ${items}
+    ${can?`<label class="f"><span>Remarque pour le manager (optionnel)</span><textarea id="jnote-${d}" data-jnote="${d}" rows="2" placeholder="ex. alerte en attente de retour client">${esc(j.note||'')}</textarea></label>`:j.note?`<div class="jnote"><span class="eyebrow">Remarque</span><p>${esc(j.note)}</p></div>`:''}
+    ${!can&&d===TODAY&&!canWrite?'<p class="muted" style="font-size:.8rem">Seule la personne de back office du jour (ou le manager) peut cocher les tâches.</p>':''}
+  </div>`;
+}
+function tick(d,tid,on){
+  const j=journal(d),done={...(j.done||{})};
+  if(on){const t=new Date();done[tid]={at:`${pad(t.getHours())}:${pad(t.getMinutes())}`,by:myId||''}}else delete done[tid];
+  jput(d,{...j,done});
+}
+
+/* ---------- vue « Mon planning » ---------- */
+function vMoi(){
+  if(isEmpty())return emptyState();
+  const me=myCollab(),C=byId();
+  if(!me){
+    const team=collabs().filter(c=>c.actif);
+    return `<div class="panel" style="max-width:640px"><h2>Qui êtes-vous ?</h2>
+      <p class="muted">Choisissez votre nom pour voir vos tours de back office et votre programme du jour. ${canWrite?'Vous pouvez aussi relier les comptes de chacun depuis l\'onglet Équipe.':''}</p>
+      <div class="pick-me">${team.map(c=>`<button class="btn pick" data-act="claim" data-id="${c.id}">${chip(c)}</button>`).join('')}</div></div>`;
+  }
+  const c=C[me],from=TODAY,to=addDays(TODAY,62),plan=compute(from,to);
+  const turns=Object.keys(plan).sort().filter(d=>!plan[d].ferie&&dutyIds(plan[d]).includes(me));
+  const rel=d=>{const n=ordinal(d)-ordinal(TODAY);return n===0?"aujourd'hui":n===1?'demain':`dans ${n} jours`};
+  const todayP=plan[TODAY],onDuty=todayP&&!todayP.ferie&&dutyIds(todayP).includes(me);
+  const next=turns.find(d=>d>TODAY);
+  const wk=weekDays(CUR()),wplan=compute(wk[0],wk[4]);
+  const myAbs=Object.values(state.absences).filter(a=>a.collab===me&&(!a.au||a.au>=TODAY)).sort((a,b)=>a.du.localeCompare(b.du));
+  const dayCard=d=>{const P=wplan[d];let st,cls='';
+    if(P.ferie){st='Férié';cls='off'}else{const ab=P.absents.find(x=>x.id===me),bo=dutyIds(P).includes(me);
+      st=bo?(P.matin.includes(me)&&P.apresmidi.includes(me)?'Back office':P.matin.includes(me)?'Back office · matin':'Back office · ap.-midi'):ab?(ABS[ab.a.type]||'Absent'):'Agence';cls=bo?'bo-day':ab?'abs-day':''}
+    return `<div class="mini ${cls} ${d===TODAY?'is-today':''}"><span class="eyebrow">${DN[weekday(d)]} ${short(d)}</span><b>${st}</b></div>`};
+  const linkNote=linkedByManager()?'':`<button class="btn ghost" data-act="claim" data-id="">Ce n'est pas moi</button>`;
+  return `<div class="me-head"><span class="avatar big" style="--h:${hue(c)}">${esc(initials(c.nom))}</span><div><div class="eyebrow">Mon planning</div><h2>Bonjour ${esc(c.nom)}</h2>
+      <p class="muted">${onDuty?'<b class="hl">Vous êtes de back office aujourd\'hui.</b>':next?`Prochain tour de back office : <b>${DNL[weekday(next)].toLowerCase()} ${short(next)}</b> (${rel(next)}).`:'Aucun tour prévu dans les 9 prochaines semaines.'}</p></div>${linkNote}</div>
+    ${onDuty?checklist(TODAY,{title:'Mon programme du jour'}):''}
+    <div class="cols" style="margin-top:20px">
+      <div class="panel"><h3>Ma semaine</h3><div class="minis">${wk.map(dayCard).join('')}</div>
+        <h3 style="margin-top:8px">Mes prochains tours</h3>
+        ${turns.length?`<ul class="turnlist">${turns.slice(0,8).map(d=>{const P=plan[d];const half=!P.matin.includes(me)?'après-midi seulement':!P.apresmidi.includes(me)?'matin seulement':'';
+          return `<li><span class="mono">${DN[weekday(d)]} ${short(d)}</span><span class="muted">${rel(d)}</span>${half?`<span class="pill warn">${half}</span>`:''}${P.subFor[me]?'<span class="pill info">Échange</span>':''}${P.manual?'<span class="pill info">Ajusté</span>':''}</li>`}).join('')}</ul>`:'<p class="muted">Aucun tour prévu.</p>'}
+      </div>
+      <div class="panel"><h3>Mes absences à venir</h3>
+        ${myAbs.length?myAbs.map(a=>`<div class="absrow" style="grid-template-columns:minmax(0,1fr) auto"><div><div class="when">${a.rec?esc(recLabel(a)):a.du===a.au?`${DNL[weekday(a.du)]} ${short(a.du)}`:`${short(a.du)} → ${short(a.au)}`}${a.portion&&a.portion!=='journee'?' · '+PORT[a.portion].toLowerCase():''}</div></div><span class="abs ${a.type||'autre'}">${ABS[a.type]||'Autre'}</span></div>`).join(''):'<p class="muted">Aucune absence enregistrée.</p>'}
+        <p class="muted" style="font-size:.8rem">${canWrite?'Saisissez les absences dans l\'onglet Absences.':'Une absence manque ? Signalez-la au manager, qui l\'enregistrera.'}</p>
+      </div>
+    </div>`;
+}
+
+/* ---------- liaison des comptes (onglet Équipe, manager) ---------- */
+function acctBlock(c,dis){
+  const claims=Object.entries(state.liens).filter(([u,l])=>l.collab===c.id&&u!==c.compte).map(([u])=>u);
+  return `<div class="f acct"><span>Compte claude.ai</span>
+    ${c.compte?`<div class="row" style="gap:8px"><span class="pill ok">Relié à ${esc(names[c.compte]||'un compte')}</span><button class="btn ghost" data-act="unlink" data-id="${c.id}" ${dis}>Délier</button></div>`
+      :`<div class="acct-box"><input type="text" id="acct-${c.id}" data-acct="${c.id}" placeholder="Rechercher un collègue par son nom…" autocomplete="off" ${dis||(!userNs?'disabled':'')}><div class="acct-res" id="acct-res-${c.id}"></div></div>`}
+    ${claims.map(u=>`<div class="row" style="gap:8px"><span class="pill info">${esc(names[u]||'Un collègue')} s'est déclaré comme ${esc(c.nom)}</span>${c.compte?'':`<button class="btn" data-act="link" data-id="${c.id}" data-u="${u}" ${dis}>Valider</button>`}</div>`).join('')}
+  </div>`;
+}
+async function acctSearch(cid,q){
+  const box=document.getElementById('acct-res-'+cid);if(!box||!userNs)return;
+  const hits=await userNs.search(q||'');box.textContent='';
+  for(const h of hits.slice(0,6)){const b=document.createElement('button');b.type='button';b.className='acct-hit';b.dataset.act='link';b.dataset.id=cid;b.dataset.u=h.id;
+    const img=document.createElement('img');img.src=h.avatarUrl;img.alt='';const s=document.createElement('span');s.textContent=h.name;b.append(img,s);box.append(b)}
+  if(!hits.length&&q){const p=document.createElement('p');p.className='muted';p.style.fontSize='.8rem';p.textContent='Aucun collègue trouvé.';box.append(p)}
+}
+
 /* ---------- rendu ---------- */
 const $=s=>document.querySelector(s);
 let renderPending=false;
 function render(){
   const v=$('#view'),ae=document.activeElement;
-  if(ae&&v.contains(ae)&&/INPUT|SELECT|TEXTAREA/.test(ae.tagName)&&ui.tab!=='planning'){renderPending=true;return}
+  if(ae&&v.contains(ae)&&/INPUT|SELECT|TEXTAREA/.test(ae.tagName)&&ae.type!=='checkbox'&&ae.type!=='radio'){renderPending=true;return}
   renderPending=false;
   renderTabs();renderStatus();renderHero();
-  const f={planning:vPlanning,equipe:vEquipe,absences:vAbsences,equite:vEquite,reglages:vReglages}[ui.tab]||vPlanning;
+  const f={moi:vMoi,planning:vPlanning,equipe:vEquipe,absences:vAbsences,equite:vEquite,reglages:vReglages}[ui.tab]||vPlanning;
   v.innerHTML=f();
+  resolveNames();
 }
 document.addEventListener('focusout',()=>setTimeout(()=>{if(renderPending)render()},0));
 
 function renderTabs(){
   const nAbs=Object.values(state.absences).filter(a=>a.au>=TODAY).length;
   const nTeam=collabs().filter(c=>inRotation(c,TODAY)).length;
-  const T=[['planning','Planning',''],['equipe','Équipe',nTeam],['absences','Absences',nAbs||''],['equite','Équité',''],['reglages','Tâches et réglages','']];
+  const T=[['moi','Mon planning',''],['planning','Planning',''],['equipe','Équipe',nTeam],['absences','Absences',nAbs||''],['equite','Équité',''],['reglages','Tâches et réglages','']];
   $('#tabs').innerHTML=T.map(([id,l,n])=>`<button role="tab" data-tab="${id}" aria-selected="${ui.tab===id}">${l}${n!==''?`<span class="n">${n}</span>`:''}</button>`).join('');
 }
 function renderHero(){
@@ -517,7 +681,7 @@ function renderHero(){
   const d1=nextWorkday(TODAY),d2=nextWorkday(addDays(d1,1)),plan=compute(d1,d2),C=byId();
   const card=(d,lbl,cls)=>{const P=plan[d];if(!P)return '';const ids=dutyIds(P);
     const names=ids.map(id=>C[id]).filter(Boolean);
-    return `<div class="today-card ${cls}"><span class="lbl">${lbl}</span>${names.length?names.map(c=>`<span class="who"><span class="av">${esc(initials(c.nom))}</span>${esc(c.nom)}</span>`).join(''):'<span class="who">Personne de disponible</span>'}<span class="sub">${P.relais?'Relais matin / après-midi':'Toute la journée'}</span></div>`};
+    return `<div class="today-card ${cls}"><span class="lbl">${lbl}</span>${names.length?names.map(c=>`<span class="who"><span class="av">${esc(initials(c.nom))}</span>${esc(c.nom)}</span>`).join(''):'<span class="who">Personne de disponible</span>'}<span class="sub">${P.relais?'Relais matin / après-midi':'Toute la journée'}${d===TODAY?(()=>{const g=progress(d);return g.total?` · ${g.n}/${g.total} tâches faites`:''})():''}</span></div>`};
   h.innerHTML=card(d1,d1===TODAY?"Aujourd'hui":`${DNL[weekday(d1)]} ${short(d1)}`,'')+card(d2,`${d1===TODAY&&d2===addDays(TODAY,1)?'Demain':DNL[weekday(d2)]+' '+short(d2)}`,'next');
 }
 function renderStatus(){
@@ -555,7 +719,8 @@ function vPlanning(){
     <div class="row"><div class="seg" role="group" aria-label="Affichage"><button data-act="view" data-v="poste" aria-pressed="${ui.view==='poste'}">Par jour</button><button data-act="view" data-v="collab" aria-pressed="${ui.view==='collab'}">Par collaborateur</button></div>
     <button class="btn" data-act="copy">Copier la semaine</button></div></div>
     <div class="summary">${pills}</div>`;
-  return head+(ui.view==='collab'?gridCollab(days,plan,C):gridJour(days,plan,C,ts))+orderPanel()+
+  const todayCard=weekday(TODAY)<5?checklist(TODAY):'';
+  return head+(todayCard?`<div style="margin-top:14px">${todayCard}</div>`:'')+(ui.view==='collab'?gridCollab(days,plan,C):gridJour(days,plan,C,ts))+orderPanel()+
     `<p class="muted" style="font-size:.82rem;margin-top:10px">${canWrite?'Cliquez la case « De back office » d\'un jour pour échanger un tour ou faire passer quelqu\'un en priorité ; les conséquences sur les autres jours s\'affichent avant d\'enregistrer.':'Lecture seule.'} Les absences se saisissent dans l'onglet Absences.</p>`;
 }
 
@@ -569,7 +734,7 @@ function gridJour(days,plan,C,ts){
     if(P.ferie){body+=`<td class="off"></td>`;continue}
     const ids=dutyIds(P),sh=P.short.matin+P.short.apresmidi;
     const ch=ids.map(id=>{const half=!P.matin.includes(id)?' (ap.-midi)':!P.apresmidi.includes(id)?' (matin)':'';return chip(C[id],'big')+(half?`<span class="muted" style="font-size:.74rem">${half.trim()}</span>`:'')}).join('');
-    body+=td(d,`<button class="cell duty-cell ${sh?'short':''}" data-act="cell" data-d="${d}" ${canWrite?'':'disabled'} aria-label="Back office du ${DNL[weekday(d)]} ${short(d)}">${ch||'<span class="muted">Personne</span>'}${sh?`<span class="flag crit">${P.short.matin&&P.short.apresmidi?'Non couvert':P.short.matin?'Matin non couvert':'Ap.-midi non couvert'}</span>`:''}${P.relais?'<span class="flag warn">Relais</span>':''}${P.manual==='echange'||Object.keys(P.subFor).length?'<span class="flag man">Échange</span>':P.manual?'<span class="flag man">Avancé</span>':''}</button>`);
+    body+=td(d,`<button class="cell duty-cell ${sh?'short':''}" data-act="cell" data-d="${d}" ${canWrite?'':'disabled'} aria-label="Back office du ${DNL[weekday(d)]} ${short(d)}">${ch||'<span class="muted">Personne</span>'}${sh?`<span class="flag crit">${P.short.matin&&P.short.apresmidi?'Non couvert':P.short.matin?'Matin non couvert':'Ap.-midi non couvert'}</span>`:''}${P.relais?'<span class="flag warn">Relais</span>':''}${d<=TODAY&&ids.length?(()=>{const g=progress(d);return g.total?`<span class="flag ${g.n===g.total?'ok':d<TODAY?'crit':'warn'}">✓ ${g.n}/${g.total}</span>`:''})():''}${P.manual==='echange'||Object.keys(P.subFor).length?'<span class="flag man">Échange</span>':P.manual?'<span class="flag man">Avancé</span>':''}</button>`);
   }
   body+='</tr>';
   for(const sl of SLOTS){
@@ -614,6 +779,7 @@ function vEquipe(){
         <label class="f"><span>Départ (optionnel)</span><input type="date" id="fin-${c.id}" data-f="fin" value="${esc(c.fin||'')}" ${dis}></label>
         <div class="f"><span>Couleur</span><div class="swatches">${Array.from({length:NCOL},(_,i)=>`<button class="sw" style="--h:var(--c${i+1})" data-act="color" data-id="${c.id}" data-c="${i+1}" aria-pressed="${(c.couleur||1)===i+1}" aria-label="Couleur ${i+1}" ${dis}></button>`).join('')}</div></div>
       </div>
+      ${acctBlock(c,dis)}
       <div class="row" style="justify-content:space-between"><div class="row"><button class="btn ghost" data-act="up" data-id="${c.id}" ${dis}>↑ Monter</button><button class="btn ghost" data-act="down" data-id="${c.id}" ${dis}>↓ Descendre</button></div>
       <button class="btn danger" data-act="delc" data-id="${c.id}" ${dis}>Supprimer</button></div>
     </div>`;
@@ -917,6 +1083,9 @@ document.addEventListener('click',e=>{
     case 'oapply':{const dr=ui.orderDraft;if(!dr)break;const from=nextWorkday(($('#ord-from')?.value)||dr.applyFrom||dr.from);
       put('ordres',from,{depuis:from,ordre:dr.ids});ui.orderDraft=null;toast(`Nouvel ordre appliqué à partir du ${short(from)}.`);break}
     case 'recfreq':{ui.recForm=readRecForm();ui.recForm.freq=b.dataset.v;render();break}
+    case 'claim':claimMe(id||null);break;
+    case 'link':{const c={...state.equipe[id],compte:b.dataset.u};put('equipe',id,c);toast('Compte relié.');break}
+    case 'unlink':{const c={...state.equipe[id]};delete c.compte;put('equipe',id,c);break}
     case 'absmode':ui.absMode=b.dataset.v;saveUi();render();break;
     case 'cal':{const d=parse(ui.calStart||TODAY.slice(0,8)+'01');ui.calStart=iso(new Date(d.getFullYear(),d.getMonth()+(+b.dataset.n),1));render();break}
     case 'cal0':ui.calStart=null;render();break;
@@ -953,6 +1122,8 @@ document.addEventListener('change',e=>{
   if(tr&&el.dataset.tf){const id=tr.dataset.tid,t={...state.taches[id]};let v=el.value.trim();if(el.dataset.tf==='nom'&&!v)v='Tâche sans nom';t[el.dataset.tf]=v;put('taches',id,t);return}
   if(el.dataset.rf){const R={...reglages()};let v=el.type==='checkbox'?el.checked:el.value;if(el.dataset.rf==='parJour')v=Math.max(1,Math.min(5,parseInt(v,10)||1));R[el.dataset.rf]=v;if(!R.debut)return;put('reglages','general',R);return}
   if(el.id==='ord-from'&&ui.orderDraft){ui.orderDraft.applyFrom=el.value||ui.orderDraft.from;render();return}
+  if(el.dataset.todo){tick(el.dataset.d,el.dataset.todo,el.checked);return}
+  if(el.dataset.jnote){const d=el.dataset.jnote,j=journal(d);if((j.note||'')!==el.value.trim())jput(d,{...j,done:j.done||{},note:el.value.trim()});return}
   if(el.dataset.recau){const id=el.dataset.recau,a={...state.absences[id]};if(el.value&&el.value<a.du){toast('La date de fin doit suivre la date de début.');return}a.au=el.value||'';put('absences',id,a);toast(el.value?`Récurrence arrêtée après le ${short(el.value)}.`:'Récurrence sans date de fin.');return}
   if(el.closest('#recform')&&(el.name==='r-jours'||/^r-(tous|rang|jour)$/.test(el.id))){ui.recForm=readRecForm();return}
   if(el.id==='a-du'){const au=$('#a-au');if(au&&au.value<el.value)au.value=el.value}
@@ -977,6 +1148,8 @@ document.addEventListener('submit',e=>{
   put('absences',uid('a'),{collab:v('a-collab'),du,au,type:v('a-type'),portion:v('a-portion'),note:v('a-note').trim()});
   toast(`Absence enregistrée (${workdays(du,au)} j ouvré${workdays(du,au)>1?'s':''}).`);
 });
+document.addEventListener('input',e=>{if(e.target.dataset.acct){acctSearch(e.target.dataset.acct,e.target.value);return}});
+document.addEventListener('focusin',e=>{if(e.target.dataset&&e.target.dataset.acct)acctSearch(e.target.dataset.acct,e.target.value)});
 document.addEventListener('input',e=>{if(e.target.id!=='bulk-text')return;ui.bulkText=e.target.value;const p=$('#bulk-preview');if(p)p.innerHTML=bulkPreview()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#layer').innerHTML)closeModal()});
 
@@ -988,7 +1161,7 @@ render();
   let d=null;try{d=window.claude?await window.claude.use('db'):null}catch(e){d=null}
   if(!d){mode='local';localLoad();render();return}
   db=d;mode='db';
-  try{const u=await window.claude.use('user');if(u){let w=await u.can('data.write');if(w===null||w===undefined){try{w=await u.canEdit()}catch(e){w=null}}if(w===false)canWrite=false}}catch(e){}
+  try{const u=await window.claude.use('user');if(u){userNs=u;try{myId=await u.id()}catch(e){myId=null}let w=await u.can('data.write');if(w===null||w===undefined){try{w=await u.canEdit()}catch(e){w=null}}if(w===false)canWrite=false}}catch(e){}
   for(const col of COLS){
     db.collection(col).onSnapshot(snap=>{
       const m={};snap.docs.forEach(doc=>{if(doc.exists)m[doc.id]=doc.data()});
