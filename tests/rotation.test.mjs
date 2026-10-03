@@ -1,0 +1,83 @@
+// Tests du moteur de rotation : node tests/rotation.test.mjs
+// Le script de index.html est extrait et exécuté avec un DOM minimal, sans navigateur.
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import assert from 'node:assert/strict';
+
+const html = readFileSync(fileURLToPath(new URL('../index.html', import.meta.url)), 'utf8');
+let js = html.match(/<script>([\s\S]*)<\/script>/)[1];
+js = js.replace('/* ---------- démarrage', 'globalThis.__t={compute,state,defaults,dutyIds,recLabel,parseBulk};return;/*');
+const el = { innerHTML: '', contains: () => false, className: '', addEventListener() {} };
+globalThis.document = { querySelector: () => el, addEventListener() {}, activeElement: null };
+globalThis.localStorage = { getItem: () => null, setItem() {} };
+new Function(js)();
+const { compute, state, defaults, dutyIds, recLabel, parseBulk } = globalThis.__t;
+
+function reset() {
+  Object.assign(state, defaults());
+  state.reglages.general.debut = '2026-09-21';
+  state.absences = {}; state.affectations = {}; state.ordres = {};
+}
+const week = (from = '2026-10-05', to = '2026-10-09') =>
+  Object.values(compute(from, to)).map(d => (d.ferie ? '--' : dutyIds(d).join('+')));
+
+let n = 0;
+const test = (name, fn) => { reset(); fn(); n++; console.log('ok -', name); };
+
+test('rotation régulière, une personne par jour', () => {
+  assert.deepEqual(week(), ['c3', 'c4', 'c1', 'c2', 'c3']);
+});
+test('une absence saute la personne, qui reprend à son retour', () => {
+  state.absences = { a: { collab: 'c4', du: '2026-10-05', au: '2026-10-09', type: 'conge', portion: 'journee' } };
+  assert.deepEqual(week(), ['c3', 'c1', 'c2', 'c3', 'c1']);
+  assert.equal(dutyIds(compute('2026-10-12', '2026-10-12')['2026-10-12'])[0], 'c4');
+});
+test('échange : seuls les deux jours concernés changent', () => {
+  state.affectations = { '2026-10-05': { cells: { '2026-10-05': { ids: ['c1'], mode: 'echange' } } } };
+  assert.deepEqual(week(), ['c1', 'c4', 'c3', 'c2', 'c3']);
+});
+test('décalage : la suite glisse d\'un rang', () => {
+  state.affectations = { '2026-10-05': { cells: { '2026-10-05': { ids: ['c1'], mode: 'decale' } } } };
+  assert.deepEqual(week(), ['c1', 'c3', 'c4', 'c2', 'c1']);
+});
+test('nouvel ordre de passage appliqué à une date', () => {
+  state.ordres = { '2026-10-07': { depuis: '2026-10-07', ordre: ['c2', 'c1', 'c3', 'c4'] } };
+  assert.deepEqual(week(), ['c3', 'c4', 'c2', 'c1', 'c3']);
+});
+test('jour férié : pas de back office, rotation reprise le lendemain', () => {
+  assert.deepEqual(week('2026-11-09', '2026-11-13')[2], '--');
+});
+test('absence récurrente hebdomadaire (tous les mercredis)', () => {
+  state.absences = { tp: { collab: 'c1', du: '2026-10-05', au: '', type: 'tempspartiel', portion: 'journee', rec: { freq: 'hebdo', jours: [2], tous: 1 } } };
+  const p = compute('2026-10-05', '2026-10-30');
+  for (const d of ['2026-10-07', '2026-10-14', '2026-10-21', '2026-10-28']) {
+    assert.ok(p[d].absents.some(x => x.id === 'c1'), d);
+    assert.ok(!dutyIds(p[d]).includes('c1'), d);
+  }
+  assert.ok(!p['2026-10-08'].absents.length);
+  assert.equal(recLabel(state.absences.tp), 'Tous les mercredis');
+});
+test('absence récurrente une semaine sur deux avec date de fin', () => {
+  state.absences = { b: { collab: 'c3', du: '2026-10-05', au: '2026-10-25', type: 'autre', portion: 'apresmidi', rec: { freq: 'hebdo', jours: [0], tous: 2 } } };
+  const p = compute('2026-10-05', '2026-11-02');
+  assert.ok(p['2026-10-05'].absents.length && !p['2026-10-12'].absents.length && p['2026-10-19'].absents.length);
+  assert.ok(!p['2026-11-02'].absents.length, 'arrêtée après la date de fin');
+});
+test('absence mensuelle : 1er lundi et dernier vendredi', () => {
+  state.absences = {
+    m: { collab: 'c4', du: '2026-10-01', au: '', type: 'formation', portion: 'journee', rec: { freq: 'mensuel', rang: 1, jour: 0 } },
+    l: { collab: 'c2', du: '2026-10-01', au: '', type: 'formation', portion: 'matin', rec: { freq: 'mensuel', rang: 5, jour: 4 } },
+  };
+  const p = compute('2026-10-01', '2026-11-30');
+  const days = id => Object.keys(p).filter(d => p[d].absents.some(x => x.id === id));
+  assert.deepEqual(days('c4'), ['2026-10-05', '2026-11-02']);
+  assert.deepEqual(days('c2'), ['2026-10-30', '2026-11-27']);
+});
+test('saisie groupée : lignes valides, erreurs et doublons', () => {
+  state.absences = { x: { collab: 'c1', du: '2026-10-26', au: '2026-10-30', type: 'conge', portion: 'journee' } };
+  const r = parseBulk('Collaborateur 1 ; 26/10/2026 ; 30/10/2026\nCollaborateur 2 ; 12/11/2026 ; ; RTT ; matin\nInconnu ; 01/12/2026');
+  assert.ok(r[0].dup);
+  assert.equal(r[1].type, 'rtt'); assert.equal(r[1].portion, 'matin');
+  assert.ok(r[2].err);
+});
+console.log(`\n${n} tests réussis`);
