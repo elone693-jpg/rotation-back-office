@@ -135,4 +135,15 @@ test('indicateurs : volumes saisis et rendu des onglets', () => {
   assert.match(html, /<svg/); assert.match(html, /25 par jour/);
   for (const v of [vAbsences, vPlanning, vEquipe, vReglages]) assert.ok(v().length > 500);
 });
+test('compteurs du jour : mails début/fin et appels partagés avec la checklist', () => {
+  const E2 = globalThis.__t;
+  E2.cptSet('2026-09-28', 'md', 42); E2.cptSet('2026-09-28', 'mf', 7); E2.cptSet('2026-09-28', 'ap', 15);
+  const j = state.journal['2026-09-28'];
+  assert.equal(j.cpt.md, 42); assert.equal(j.cpt.mf, 7);
+  assert.equal(j.vol.t_appels, 15, 'App. = volume de la tâche appels');
+  assert.equal(E2.cptGet('2026-09-28', 'ap'), 15);
+  ui.actPeriod = 'all';
+  assert.match(vActivite(), /M-déb/);
+  assert.match(vPlanning(), /data-cpt="md"/);
+});
 console.log(`\n${n} tests réussis`);

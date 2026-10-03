@@ -28,7 +28,7 @@ Outil de planification du back office de l'agence. Chaque jour ouvré, une perso
 | `affectations/<lundi>` | `cells[date] = {ids, mode: 'echange' ou 'decale'}` |
 | `ordres/<date>` | `{depuis, ordre: [ids]}` |
 | `reglages/general` | `debut`, `feries`, `parJour`, `seuil` (effectif minimum), `pasDeSuite` |
-| `journal/<date>` | checklist du jour : `done[tacheId] = {at: 'HH:MM', by: userId}`, `vol[tacheId]` (volume traité), `note` |
+| `journal/<date>` | checklist du jour : `done[tacheId] = {at: 'HH:MM', by: userId}`, `vol[tacheId]` (volume traité), `cpt` `{md, mf}` (mails en début / fin de journée), `note`. Le compteur App. (appels émis) du Planning écrit dans `vol` de la tâche d'appels |
 | `liens/<userId>` | nom déclaré par le collègue lui-même : `{collab}` (le lien posé par le manager est `equipe.compte`) |
 
 Récurrence `rec` :

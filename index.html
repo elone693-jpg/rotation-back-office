@@ -428,6 +428,17 @@ nav.tabs button{flex:none}
   .dp span{min-width:52px;padding:10px 12px}
   .cell:hover{background:none;border-color:transparent}
 }
+.cpt-row th abbr,.cpt-f abbr{text-decoration:none;font-weight:700;letter-spacing:.02em}
+.cpt-row th{padding:6px 12px}
+.cpt-row td{padding:4px 6px}
+.cpt-in{width:100%;text-align:center;font-family:var(--mono);font-variant-numeric:tabular-nums;padding:6px 4px!important;border-radius:8px!important}
+.cpt-in:disabled{background:transparent;border:1px dashed var(--line);color:var(--muted);opacity:.7}
+.cpt-in::-webkit-inner-spin-button,.cpt-in::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.cpt-in{-moz-appearance:textfield}
+.cpt-card{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.cpt-f{display:grid;gap:3px;font-size:.72rem;color:var(--muted);text-align:center;min-width:0}
+.cpt-legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:.78rem;color:var(--muted);margin-top:10px}
+.cpt-legend b{color:var(--accent);margin-right:4px}
 </style>
 
 <div class="wrap">
@@ -802,15 +813,16 @@ function vActivite(){
   const per=ui.actPeriod&&P[ui.actPeriod]?ui.actPeriod:'12w';let from=P[per][0];if(from<start)from=start;
   const plan=compute(from,end);
   const days=Object.keys(plan).sort().filter(d=>!plan[d].ferie);
-  const withVol=days.filter(d=>Object.keys(journal(d).vol||{}).length);
+  const withVol=days.filter(d=>Object.keys(journal(d).vol||{}).length||Object.keys(journal(d).cpt||{}).length);
   const complete=days.filter(d=>{const g=progress(d);return g.total&&g.n===g.total}).length;
   const seg=`<div class="seg" role="group" aria-label="Période">${Object.entries(P).map(([k,v])=>`<button data-act="actp" data-v="${k}" aria-pressed="${per===k}">${v[1]}</button>`).join('')}</div>`;
   const head=`<div class="section-title"><div><h2>Activité du back office</h2><p class="muted">Volumes saisis dans le programme du jour, du ${short(from)} à aujourd'hui.</p></div>${seg}</div>`;
-  if(!withVol.length)return head+`<div class="empty" style="margin-top:14px"><h3>Pas encore de volumes saisis</h3><p class="muted">Dans le programme du jour (onglet Planning), indiquez pour chaque tâche le nombre traité : mails, alertes, appels… Les indicateurs apparaîtront ici.</p><button class="btn primary" data-tab="planning">Aller au programme du jour</button></div>`;
+  if(!withVol.length)return head+`<div class="empty" style="margin-top:14px"><h3>Pas encore de volumes saisis</h3><p class="muted">Dans l'onglet Planning, remplissez les compteurs du jour (M-déb, M-fin, App.) ou le nombre traité pour chaque tâche du programme. Les indicateurs apparaîtront ici.</p><button class="btn primary" data-tab="planning">Aller au programme du jour</button></div>`;
   const tot={},cnt={};ts.forEach(t=>{tot[t.id]=0;cnt[t.id]=0});
-  for(const d of withVol){const v=journal(d).vol;for(const t of ts)if(v[t.id]!=null&&v[t.id]!==''){tot[t.id]+=+v[t.id];cnt[t.id]++}}
+  for(const d of withVol){const v=journal(d).vol||{};for(const t of ts)if(v[t.id]!=null&&v[t.id]!==''){tot[t.id]+=+v[t.id];cnt[t.id]++}}
   const tiles=`<div class="tiles">
     <div class="tile"><span class="eyebrow">Jours saisis</span><b class="mono">${withVol.length}</b><small>sur ${days.length} jours ouvrés</small></div>
+    ${['md','mf'].map(k=>{const c=CPT.find(x=>x.k===k),vals=days.map(d=>journal(d).cpt?.[k]).filter(v=>v!=null&&v!=='');return `<div class="tile"><span class="eyebrow"><abbr title="${c.lib}">${c.ab}</abbr> moyen</span><b class="mono">${vals.length?fmtN(vals.reduce((a,b)=>a+ +b,0)/vals.length):'—'}</b><small>${c.lib.toLowerCase()} · ${vals.length} j saisi${vals.length>1?'s':''}</small></div>`}).join('')}
     <div class="tile"><span class="eyebrow">Programme complet</span><b class="mono">${days.length?Math.round(complete/days.length*100):0} %</b><small>${complete} jour${complete>1?'s':''} à 100 %</small></div>
     ${ts.map(t=>`<div class="tile"><span class="eyebrow">${esc(t.nom)}</span><b class="mono">${fmtN(tot[t.id])}</b><small>${cnt[t.id]?`${fmtN(tot[t.id]/cnt[t.id])} par jour en moyenne`:'aucune saisie'}</small></div>`).join('')}</div>`;
   // une petite courbe en barres par tâche : total par semaine
@@ -820,7 +832,7 @@ function vActivite(){
     return barChart(t.nom,data);
   }).join('');
   // par collaborateur : moyenne par jour de back office saisi
-  const by={};for(const d of withVol){const ids=dutyIds(plan[d]);const v=journal(d).vol;for(const id of ids){by[id]??={n:0,t:{}};by[id].n++;for(const t of ts)if(v[t.id]!=null&&v[t.id]!=='')by[id].t[t.id]=(by[id].t[t.id]||0)+(+v[t.id])/ids.length}}
+  const by={};for(const d of withVol){const ids=dutyIds(plan[d]);const v=journal(d).vol||{};for(const id of ids){by[id]??={n:0,t:{}};by[id].n++;for(const t of ts)if(v[t.id]!=null&&v[t.id]!=='')by[id].t[t.id]=(by[id].t[t.id]||0)+(+v[t.id])/ids.length}}
   const people=Object.keys(by).map(id=>C[id]).filter(Boolean);
   const table=`<div class="grid-wrap" style="margin-top:20px"><table class="eq" style="min-width:560px"><caption class="sr">Moyenne par jour de back office et par collaborateur</caption><thead><tr><th>Collaborateur</th><th>Jours saisis</th>${ts.map(t=>`<th>${esc(t.nom)} / jour</th>`).join('')}</tr></thead>
     <tbody>${people.map(c=>`<tr><td>${chip(c)}</td><td class="num">${by[c.id].n}</td>${ts.map(t=>`<td class="num">${by[c.id].t[t.id]!=null?fmtN(by[c.id].t[t.id]/by[c.id].n):'—'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
@@ -929,13 +941,29 @@ function vPlanning(){
     <button class="btn" data-act="copy" aria-label="Copier la semaine">${narrow()?'Copier':'Copier la semaine'}</button></div></div>
     <div class="summary">${pills}</div>`;
   const todayCard=weekday(TODAY)<5?checklist(TODAY):'';
-  return head+(todayCard?`<div style="margin-top:14px">${todayCard}</div>`:'')+(narrow()?(ui.view==='collab'?collabCards(days,plan,C):dayCards(days,plan,C,ts)):(ui.view==='collab'?gridCollab(days,plan,C):gridJour(days,plan,C,ts)))+orderPanel()+
+  return head+(todayCard?`<div style="margin-top:14px">${todayCard}</div>`:'')+(narrow()?(ui.view==='collab'?collabCards(days,plan,C):dayCards(days,plan,C,ts)):(ui.view==='collab'?gridCollab(days,plan,C):gridJour(days,plan,C,ts)+cptLegend()))+orderPanel()+
     `<p class="muted" style="font-size:.82rem;margin-top:10px">${canWrite?'Cliquez la case « De back office » d\'un jour pour échanger un tour ou faire passer quelqu\'un en priorité ; les conséquences sur les autres jours s\'affichent avant d\'enregistrer.':'Lecture seule.'} Les absences se saisissent dans l'onglet Absences.</p>`;
 }
 
 function dayHead(days,plan){return days.map(d=>{const P=plan[d];return `<th class="${d===TODAY?'today':''}"><div class="dhead"><span class="dname">${DN[weekday(d)]}</span><span class="dnum">${short(d)}</span></div>${P.ferie?`<span class="ftag">${esc(P.ferie)}</span>`:''}</th>`}).join('')}
 const td=(d,inner,cls='')=>`<td class="${cls} ${d===TODAY?'today':''}">${inner}</td>`;
 
+/* ---------- compteurs du jour (Planning) ----------
+   M-déb : mails en début de journée · M-fin : mails en fin de journée · App. : appels émis.
+   App. partage le volume de la tâche d'appels de la checklist (une seule donnée). */
+const CPT=[{k:'md',ab:'M-déb',lib:'Mails en début de journée'},{k:'mf',ab:'M-fin',lib:'Mails en fin de journée'},{k:'ap',ab:'App.',lib:'Appels émis'}];
+const appelsTask=()=>taches().find(t=>t.id==='t_appels')||taches().find(t=>/appel/i.test(t.nom));
+function cptGet(d,k){const j=journal(d);if(k==='ap'){const t=appelsTask();const v=t?j.vol?.[t.id]:j.cpt?.ap;return v??''}return j.cpt?.[k]??''}
+function cptSet(d,k,n){const j=journal(d),base={...j,done:j.done||{}};
+  if(k==='ap'){const t=appelsTask();if(t){const vol={...(j.vol||{})};if(n===null)delete vol[t.id];else vol[t.id]=n;jput(d,{...base,vol});return}}
+  const cpt={...(j.cpt||{})};if(n===null)delete cpt[k];else cpt[k]=n;jput(d,{...base,cpt});}
+const cptEditable=(d,P)=>d<=TODAY&&P&&!P.ferie&&(canWrite||canTick(d,P));
+function cptInput(d,c,P,withLabel){
+  const v=cptGet(d,c.k),dis=cptEditable(d,P)?'':'disabled';
+  const inp=`<input type="number" inputmode="numeric" min="0" max="9999" class="cpt-in" id="cpt-${c.k}-${d}" data-cpt="${c.k}" data-d="${d}" value="${v}" placeholder="${d>TODAY?'':'—'}" title="${c.lib}" aria-label="${c.lib}, ${DNL[weekday(d)]} ${short(d)}" ${dis}>`;
+  return withLabel?`<label class="cpt-f"><abbr title="${c.lib}">${c.ab}</abbr>${inp}</label>`:inp;
+}
+const cptLegend=()=>`<p class="cpt-legend">${CPT.map(c=>`<span><b>${c.ab}</b> ${c.lib.toLowerCase()}</span>`).join('')}</p>`;
 const narrow=()=>!!(typeof window!=='undefined'&&window.matchMedia&&window.matchMedia('(max-width: 700px)').matches);
 function dayCards(days,plan,C,ts){
   const prog=SLOTS.map(sl=>{const l=slotTasks(ts,sl.id).map(t=>esc(t.nom));return l.length?`<span><em>${sl.label}</em>${l.join(' · ')}</span>`:''}).join('');
@@ -943,8 +971,8 @@ function dayCards(days,plan,C,ts){
     const head=`<header><b>${DNL[weekday(d)]}</b><span class="mono muted">${short(d)}</span>${d===TODAY?'<span class="pill ok">Aujourd\'hui</span>':''}</header>`;
     if(P.ferie)return `<article class="dcard off">${head}<p class="muted">Férié · ${esc(P.ferie)}</p></article>`;
     const abs=P.absents.length?`<div class="stack">${P.absents.map(x=>`<span class="abs ${x.a.type||'autre'}">${esc(C[x.id]?.nom)} · ${ABS[x.a.type]||'Absent'}${x.p!=='journee'?' ('+SLOTL[x.p].toLowerCase()+')':''}</span>`).join('')}</div>`:'';
-    return `<article class="dcard ${d===TODAY?'is-today':''}">${head}${dutyButton(d,P,C)}${abs}</article>`}).join('')}</div>
-    <p class="prog-line">${prog}</p>`;
+    return `<article class="dcard ${d===TODAY?'is-today':''}">${head}${dutyButton(d,P,C)}<div class="cpt-card">${CPT.map(c=>cptInput(d,c,P,true)).join('')}</div>${abs}</article>`}).join('')}</div>
+    ${cptLegend()}<p class="prog-line">${prog}</p>`;
 }
 function collabCards(days,plan,C){
   const team=collabs().filter(c=>days.some(d=>inRotation(c,d)));
@@ -965,6 +993,8 @@ function gridJour(days,plan,C,ts){
     body+=td(d,dutyButton(d,P,C));
   }
   body+='</tr>';
+  body+=`<tr class="slot"><th colspan="6">Compteurs du jour</th></tr>`;
+  for(const c of CPT){body+=`<tr class="sub cpt-row"><th><abbr title="${c.lib}">${c.ab}</abbr><span class="tmeta">${c.lib}</span></th>${days.map(d=>{const P=plan[d];return P.ferie?'<td class="off"></td>':td(d,cptInput(d,c,P,false))}).join('')}</tr>`}
   for(const sl of SLOTS){
     const mine=slotTasks(ts,sl.id);if(!mine.length)continue;
     body+=`<tr class="slot"><th colspan="6">${sl.label}</th></tr>`;
@@ -1363,6 +1393,7 @@ document.addEventListener('change',e=>{
   if(tr&&el.dataset.tf){const id=tr.dataset.tid,t={...state.taches[id]};let v=el.value.trim();if(el.dataset.tf==='nom'&&!v)v='Tâche sans nom';t[el.dataset.tf]=v;put('taches',id,t);return}
   if(el.dataset.rf){const R={...reglages()};let v=el.type==='checkbox'?el.checked:el.value;if(el.dataset.rf==='parJour')v=Math.max(1,Math.min(5,parseInt(v,10)||1));if(el.dataset.rf==='seuil')v=Math.max(1,Math.min(20,parseInt(v,10)||2));R[el.dataset.rf]=v;if(!R.debut)return;put('reglages','general',R);return}
   if(el.id==='ord-from'&&ui.orderDraft){ui.orderDraft.applyFrom=el.value||ui.orderDraft.from;render();return}
+  if(el.dataset.cpt){const n=el.value===''?null:Math.max(0,Math.min(9999,parseInt(el.value,10)||0));cptSet(el.dataset.d,el.dataset.cpt,n);return}
   if(el.dataset.vol){const d=el.dataset.d,j=journal(d),vol={...(j.vol||{})};const n=el.value===''?null:Math.max(0,Math.min(9999,parseInt(el.value,10)||0));if(n===null)delete vol[el.dataset.vol];else vol[el.dataset.vol]=n;jput(d,{...j,done:j.done||{},vol});return}
   if(el.closest('#absform')&&/^a-(collab|du|au|portion)$/.test(el.id)){if(el.id==='a-du'){const au=$('#a-au');if(au&&au.value<el.value)au.value=el.value}absImpact();return}
   if(el.dataset.todo){tick(el.dataset.d,el.dataset.todo,el.checked);return}
