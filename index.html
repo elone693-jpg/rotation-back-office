@@ -363,6 +363,71 @@ table.cal tr.cal-eff td.ce.crit{background:var(--crit);color:var(--surface);font
 .chart .bar:focus-visible rect{stroke:var(--accent);stroke-width:1.5}
 .tip{position:fixed;z-index:40;background:var(--ink);color:var(--bg);font-size:.78rem;padding:6px 10px;border-radius:8px;pointer-events:none;max-width:260px;box-shadow:var(--shadow)}
 caption.sr{caption-side:top}
+
+/* ---------- téléphone (iPhone portrait 430 px, paysage 932 × 430) ---------- */
+body{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{grid-template-columns:minmax(0,1fr)}
+nav.tabs{justify-self:start;scroll-behavior:smooth;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs button{flex:none}
+.tmeta{display:block;font-weight:400;font-size:.78rem;color:var(--muted)}
+.daylist,.collablist{display:grid;gap:10px;touch-action:pan-y}
+.dcard,.ccard{background:var(--surface);border:1px solid var(--line);border-radius:var(--R);padding:12px 14px;display:grid;gap:8px;box-shadow:var(--shadow);min-width:0}
+.dcard header,.ccard header{display:flex;align-items:center;gap:8px}
+.dcard header b{font-size:1rem}
+.dcard.is-today{border-color:var(--brand);box-shadow:0 0 0 1px var(--brand),var(--shadow)}
+.dcard.off{background:var(--surface-2);box-shadow:none}
+.dcard .cell.duty-cell{min-height:52px;border:1px solid var(--line);background:var(--surface-2)}
+.ccard .minis{grid-template-columns:repeat(5,minmax(0,1fr))}
+.ccard .mini{padding:6px;text-align:center;font-size:.72rem}
+.ccard .mini b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prog-line{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.8rem;color:var(--muted);margin-top:10px}
+.prog-line em{font-style:normal;font-weight:700;color:var(--accent);margin-right:6px;text-transform:uppercase;font-size:.7rem;letter-spacing:.08em}
+@media (max-width:960px){table.plan{min-width:700px}table.plan thead th.corner{width:150px}}
+@media (max-width:700px){
+  body{padding-block:12px 40px}
+  .wrap{gap:14px}
+  .hero{padding:18px;border-radius:18px;gap:14px}
+  .hero::after{left:18px}
+  .hero-today{width:100%}
+  .today-card{flex:1 1 150px;min-width:0;padding:10px 12px}
+  .toolbar{gap:10px}
+  .toolbar>.row{width:100%;justify-content:space-between;flex-wrap:nowrap}
+  .toolbar .seg button{padding:6px 12px}
+  .weeknav{width:100%;justify-content:space-between}
+  .summary{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-inline:-4px;padding:2px 4px}
+  .summary::-webkit-scrollbar{display:none}
+  .summary .pill{flex:none}
+  .panel{padding:16px}
+  .overlay{place-items:end stretch;padding:0}
+  .modal{width:100%;max-height:88vh;border-radius:22px 22px 0 0;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}
+  .section-title{align-items:flex-start}
+  .ord-apply{flex-direction:column;align-items:stretch}
+  .absrow{grid-template-columns:minmax(0,1fr) auto}
+  .absrow>div:first-child{grid-column:1/-1}
+}
+@media (orientation:landscape) and (max-height:500px){
+  body{padding-block:8px 28px}
+  .wrap{gap:10px}
+  .hero{padding:12px 18px;border-radius:16px;gap:10px}
+  .hero h1{font-size:1.25rem}
+  .hero-eyebrow{display:none}
+  .today-card{padding:6px 12px;min-width:150px;gap:2px}
+  .today-card .who{font-size:.92rem}
+  .today-card .who .av{width:26px;height:26px;font-size:.68rem}
+  .today-card .sub{display:none}
+  .modal{max-height:94vh}
+}
+@media (pointer:coarse){
+  input[type=text],input[type=date],input[type=number],select,textarea{font-size:16px}
+  .icon-btn{width:44px;height:44px}
+  .btn{min-height:44px}
+  .seg button,nav.tabs button{min-height:40px}
+  .ord-b .icon-btn{width:40px;height:40px}
+  .todo{padding:12px}
+  .dp span{min-width:52px;padding:10px 12px}
+  .cell:hover{background:none;border-color:transparent}
+}
 </style>
 
 <div class="wrap">
@@ -786,6 +851,7 @@ function barChart(title,data){
   document.addEventListener('mousemove',e=>{const g=e.target.closest&&e.target.closest('.bar');if(g)show(g,e.clientX,e.clientY)});
   document.addEventListener('focusin',e=>{const g=e.target.closest&&e.target.closest('.bar');if(g){const r=g.getBoundingClientRect();show(g,r.left+r.width/2,r.top)}});
   document.addEventListener('focusout',hide);
+  document.addEventListener('click',e=>{const g=e.target.closest&&e.target.closest('.bar');if(g){const r=g.getBoundingClientRect();show(g,r.left+r.width/2,r.top)}else hide()});
 })();
 
 /* ---------- rendu ---------- */
@@ -798,11 +864,19 @@ function render(){
   renderTabs();renderStatus();renderHero();
   const f={moi:vMoi,activite:vActivite,planning:vPlanning,equipe:vEquipe,absences:vAbsences,equite:vEquite,reglages:vReglages}[ui.tab]||vPlanning;
   v.innerHTML=f();
+  scrollActiveTab();
   if(ui.tab==='absences')absImpact();
   resolveNames();
 }
 document.addEventListener('focusout',()=>setTimeout(()=>{if(renderPending)render()},0));
 
+function scrollActiveTab(){const t=$('#tabs'),a=t&&t.querySelector('[aria-selected="true"]');if(!a)return;const l=a.offsetLeft-(t.clientWidth-a.offsetWidth)/2;t.scrollLeft=Math.max(0,l)}
+if(typeof window!=='undefined'&&window.matchMedia){const mq=window.matchMedia('(max-width: 700px)');(mq.addEventListener?mq.addEventListener('change',()=>render()):mq.addListener(()=>render()))}
+(function(){let x0=null,y0=null,t0=0;
+  document.addEventListener('touchstart',e=>{const s=e.target.closest&&e.target.closest('.swipe');if(!s||e.touches.length!==1){x0=null;return}x0=e.touches[0].clientX;y0=e.touches[0].clientY;t0=Date.now()},{passive:true});
+  document.addEventListener('touchend',e=>{if(x0===null)return;const t=e.changedTouches[0],dx=t.clientX-x0,dy=t.clientY-y0;x0=null;
+    if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.5&&Date.now()-t0<600&&ui.tab==='planning'){ui.week=addDays(ui.week,dx<0?7:-7);render();toast(`Semaine ${isoWeek(ui.week)}`)}},{passive:true});
+})();
 function renderTabs(){
   const nAbs=Object.values(state.absences).filter(a=>a.au>=TODAY).length;
   const nTeam=collabs().filter(c=>inRotation(c,TODAY)).length;
@@ -852,24 +926,43 @@ function vPlanning(){
       <button class="icon-btn" data-act="wk" data-n="7" aria-label="Semaine suivante">›</button>
       ${m!==CUR()?'<button class="btn ghost" data-act="wk0">Cette semaine</button>':''}</div>
     <div class="row"><div class="seg" role="group" aria-label="Affichage"><button data-act="view" data-v="poste" aria-pressed="${ui.view==='poste'}">Par jour</button><button data-act="view" data-v="collab" aria-pressed="${ui.view==='collab'}">Par collaborateur</button></div>
-    <button class="btn" data-act="copy">Copier la semaine</button></div></div>
+    <button class="btn" data-act="copy" aria-label="Copier la semaine">${narrow()?'Copier':'Copier la semaine'}</button></div></div>
     <div class="summary">${pills}</div>`;
   const todayCard=weekday(TODAY)<5?checklist(TODAY):'';
-  return head+(todayCard?`<div style="margin-top:14px">${todayCard}</div>`:'')+(ui.view==='collab'?gridCollab(days,plan,C):gridJour(days,plan,C,ts))+orderPanel()+
+  return head+(todayCard?`<div style="margin-top:14px">${todayCard}</div>`:'')+(narrow()?(ui.view==='collab'?collabCards(days,plan,C):dayCards(days,plan,C,ts)):(ui.view==='collab'?gridCollab(days,plan,C):gridJour(days,plan,C,ts)))+orderPanel()+
     `<p class="muted" style="font-size:.82rem;margin-top:10px">${canWrite?'Cliquez la case « De back office » d\'un jour pour échanger un tour ou faire passer quelqu\'un en priorité ; les conséquences sur les autres jours s\'affichent avant d\'enregistrer.':'Lecture seule.'} Les absences se saisissent dans l'onglet Absences.</p>`;
 }
 
 function dayHead(days,plan){return days.map(d=>{const P=plan[d];return `<th class="${d===TODAY?'today':''}"><div class="dhead"><span class="dname">${DN[weekday(d)]}</span><span class="dnum">${short(d)}</span></div>${P.ferie?`<span class="ftag">${esc(P.ferie)}</span>`:''}</th>`}).join('')}
 const td=(d,inner,cls='')=>`<td class="${cls} ${d===TODAY?'today':''}">${inner}</td>`;
 
+const narrow=()=>!!(typeof window!=='undefined'&&window.matchMedia&&window.matchMedia('(max-width: 700px)').matches);
+function dayCards(days,plan,C,ts){
+  const prog=SLOTS.map(sl=>{const l=slotTasks(ts,sl.id).map(t=>esc(t.nom));return l.length?`<span><em>${sl.label}</em>${l.join(' · ')}</span>`:''}).join('');
+  return `<div class="daylist swipe" style="margin-top:14px">${days.map(d=>{const P=plan[d];
+    const head=`<header><b>${DNL[weekday(d)]}</b><span class="mono muted">${short(d)}</span>${d===TODAY?'<span class="pill ok">Aujourd\'hui</span>':''}</header>`;
+    if(P.ferie)return `<article class="dcard off">${head}<p class="muted">Férié · ${esc(P.ferie)}</p></article>`;
+    const abs=P.absents.length?`<div class="stack">${P.absents.map(x=>`<span class="abs ${x.a.type||'autre'}">${esc(C[x.id]?.nom)} · ${ABS[x.a.type]||'Absent'}${x.p!=='journee'?' ('+SLOTL[x.p].toLowerCase()+')':''}</span>`).join('')}</div>`:'';
+    return `<article class="dcard ${d===TODAY?'is-today':''}">${head}${dutyButton(d,P,C)}${abs}</article>`}).join('')}</div>
+    <p class="prog-line">${prog}</p>`;
+}
+function collabCards(days,plan,C){
+  const team=collabs().filter(c=>days.some(d=>inRotation(c,d)));
+  return `<div class="collablist swipe" style="margin-top:14px">${team.map(c=>`<article class="ccard"><header>${chip(c)}</header><div class="minis">${days.map(d=>{const P=plan[d];let st,cls='';
+    if(P.ferie||!inRotation(c,d)){st='—';cls='off'}else{const ab=P.absents.find(x=>x.id===c.id),bo=dutyIds(P).includes(c.id);st=bo?'Back office':ab?(ABS[ab.a.type]||'Absent'):'Agence';cls=bo?'bo-day':ab?'abs-day':''}
+    return `<div class="mini ${cls} ${d===TODAY?'is-today':''}"><span class="eyebrow">${DN[weekday(d)]}</span><b>${st}</b></div>`}).join('')}</div></article>`).join('')}</div>`;
+}
+function dutyButton(d,P,C){
+  const ids=dutyIds(P),sh=P.short.matin+P.short.apresmidi;
+  const ch=ids.map(id=>{const half=!P.matin.includes(id)?' (ap.-midi)':!P.apresmidi.includes(id)?' (matin)':'';return chip(C[id],'big')+(half?`<span class="muted" style="font-size:.74rem">${half.trim()}</span>`:'')}).join('');
+  return `<button class="cell duty-cell ${sh?'short':''}" data-act="cell" data-d="${d}" ${canWrite?'':'disabled'} aria-label="Back office du ${DNL[weekday(d)]} ${short(d)}">${ch||'<span class="muted">Personne</span>'}${sh?`<span class="flag crit">${P.short.matin&&P.short.apresmidi?'Non couvert':P.short.matin?'Matin non couvert':'Ap.-midi non couvert'}</span>`:''}${P.doublure.map(id=>`<span class="flag man">+ ${esc(C[id]?.nom)} en doublure</span>`).join('')}${P.evite.length?`<span class="flag-txt" title="Écarté ce jour-là (jour à éviter ou tour la veille)">${esc(P.evite.map(id=>initials(C[id]?.nom)).join(', '))} décalé</span>`:''}${P.relais?'<span class="flag warn">Relais</span>':''}${d<=TODAY&&ids.length?(()=>{const g=progress(d);return g.total?`<span class="flag ${g.n===g.total?'ok':d<TODAY?'crit':'warn'}">✓ ${g.n}/${g.total}</span>`:''})():''}${P.manual==='echange'||Object.keys(P.subFor).length?'<span class="flag man">Échange</span>':P.manual?'<span class="flag man">Avancé</span>':''}</button>`;
+}
 function gridJour(days,plan,C,ts){
   let body=`<tr><th class="task">De back office<span class="tmeta">Assure toutes les tâches de la journée</span></th>`;
   for(const d of days){
     const P=plan[d];
     if(P.ferie){body+=`<td class="off"></td>`;continue}
-    const ids=dutyIds(P),sh=P.short.matin+P.short.apresmidi;
-    const ch=ids.map(id=>{const half=!P.matin.includes(id)?' (ap.-midi)':!P.apresmidi.includes(id)?' (matin)':'';return chip(C[id],'big')+(half?`<span class="muted" style="font-size:.74rem">${half.trim()}</span>`:'')}).join('');
-    body+=td(d,`<button class="cell duty-cell ${sh?'short':''}" data-act="cell" data-d="${d}" ${canWrite?'':'disabled'} aria-label="Back office du ${DNL[weekday(d)]} ${short(d)}">${ch||'<span class="muted">Personne</span>'}${sh?`<span class="flag crit">${P.short.matin&&P.short.apresmidi?'Non couvert':P.short.matin?'Matin non couvert':'Ap.-midi non couvert'}</span>`:''}${P.doublure.map(id=>`<span class="flag man">+ ${esc(C[id]?.nom)} en doublure</span>`).join('')}${P.evite.length?`<span class="flag-txt" title="Écarté ce jour-là (jour à éviter ou tour la veille)">${esc(P.evite.map(id=>initials(C[id]?.nom)).join(', '))} décalé</span>`:''}${P.relais?'<span class="flag warn">Relais</span>':''}${d<=TODAY&&ids.length?(()=>{const g=progress(d);return g.total?`<span class="flag ${g.n===g.total?'ok':d<TODAY?'crit':'warn'}">✓ ${g.n}/${g.total}</span>`:''})():''}${P.manual==='echange'||Object.keys(P.subFor).length?'<span class="flag man">Échange</span>':P.manual?'<span class="flag man">Avancé</span>':''}</button>`);
+    body+=td(d,dutyButton(d,P,C));
   }
   body+='</tr>';
   for(const sl of SLOTS){
