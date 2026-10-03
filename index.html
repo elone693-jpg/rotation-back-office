@@ -296,7 +296,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);
 .prog .track i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--brand),var(--accent));transition:width .3s}
 .todo-group{display:grid;gap:6px}
 .todo{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;cursor:pointer;background:var(--surface);position:relative}
-.todo input{position:absolute;opacity:0;width:1px;height:1px}
+.todo-l input{position:absolute;opacity:0;width:1px;height:1px}
 .todo .tick{width:22px;height:22px;border-radius:7px;border:2px solid var(--line);display:grid;place-items:center;transition:all .15s}
 .todo input:checked~.tick{background:var(--accent);border-color:var(--accent)}
 .todo input:checked~.tick::after{content:"";width:6px;height:11px;border:solid var(--accent-ink);border-width:0 2.5px 2.5px 0;transform:translateY(-1px) rotate(45deg)}
@@ -330,6 +330,39 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);
 .acct-hit{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:6px 8px;cursor:pointer;text-align:left}
 .acct-hit:hover{border-color:var(--accent);background:var(--accent-soft)}
 .acct-hit img{width:24px;height:24px;border-radius:50%}
+.todo{grid-template-columns:minmax(0,1fr) auto;gap:10px;cursor:default}
+.todo-l{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:center;cursor:pointer;min-width:0}
+.todo-l:has(input:disabled){cursor:default}
+.todo .when{display:block;margin-top:2px}
+.vol input{width:5.5em;text-align:right;font-family:var(--mono)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.pill-btn{border:0;cursor:pointer}
+.pill-btn:hover{filter:brightness(.97)}
+.risks{display:grid;gap:4px}
+.risk{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:7px 10px;border-radius:10px;background:var(--surface-2)}
+.risk.crit{box-shadow:inset 3px 0 0 var(--crit)}
+.risk.warn{box-shadow:inset 3px 0 0 var(--warn)}
+.impact{padding:9px 12px;border-radius:10px;background:var(--warn-soft);color:var(--warn);font-size:.86rem}
+.impact.ok{background:var(--accent-soft);color:var(--accent)}
+.flag-txt{font-size:.72rem;color:var(--muted)}
+table.cal tr.cal-eff td.ce{background:transparent;font-family:var(--mono);font-size:.6rem;text-align:center;color:var(--muted)}
+table.cal tr.cal-eff td.ce.warn{background:var(--warn-soft);color:var(--warn);font-weight:700}
+table.cal tr.cal-eff td.ce.crit{background:var(--crit);color:var(--surface);font-weight:700}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-top:14px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--R);padding:14px 16px;display:grid;gap:2px;box-shadow:var(--shadow);min-width:0}
+.tile b{font-size:1.6rem;font-weight:600;letter-spacing:-.02em;color:var(--ink)}
+.tile small{color:var(--muted);font-size:.8rem}
+.charts{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.chart{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--R);padding:14px;box-shadow:var(--shadow);min-width:0}
+.chart figcaption{display:flex;justify-content:space-between;gap:8px;margin-bottom:6px;font-size:.9rem;flex-wrap:wrap}
+.chart svg{width:100%;height:auto;display:block;overflow:visible}
+.chart .gl{stroke:var(--line);stroke-width:1}
+.chart .ax{fill:var(--muted);font-size:10px;font-family:var(--mono)}
+.chart .bar{outline:none;cursor:default}
+.chart .bar:hover path,.chart .bar:focus path{fill:var(--brand)}
+.chart .bar:focus-visible rect{stroke:var(--accent);stroke-width:1.5}
+.tip{position:fixed;z-index:40;background:var(--ink);color:var(--bg);font-size:.78rem;padding:6px 10px;border-radius:8px;pointer-events:none;max-width:260px;box-shadow:var(--shadow)}
+caption.sr{caption-side:top}
 </style>
 
 <div class="wrap">
@@ -408,7 +441,7 @@ const COLS=['equipe','taches','absences','affectations','reglages','ordres','lie
 const state={equipe:{},taches:{},absences:{},affectations:{},reglages:{},ordres:{},liens:{},journal:{}};
 let mode='init', db=null, canWrite=true, loaded=new Set();
 const LS='rotation-bo-v1';
-const ui={tab:'moi',week:CUR(),view:'poste',eqPeriod:'4w'};
+const ui={tab:'planning',week:CUR(),view:'poste',eqPeriod:'4w'};
 try{Object.assign(ui,JSON.parse(localStorage.getItem(LS+'-ui')||'{}'));ui.week=CUR()}catch(e){}
 const saveUi=()=>{try{localStorage.setItem(LS+'-ui',JSON.stringify({tab:ui.tab,view:ui.view,eqPeriod:ui.eqPeriod,absMode:ui.absMode}))}catch(e){}};
 
@@ -443,6 +476,7 @@ const reglages=()=>({debut:addDays(monday(TODAY),-14),feries:true,parJour:1,...(
 const collabs=()=>Object.entries(state.equipe).map(([id,v],i)=>({id,...v})).sort((a,b)=>(a.ordre??99)-(b.ordre??99)||a.nom.localeCompare(b.nom));
 const taches=()=>Object.entries(state.taches).map(([id,v])=>({id,...v})).sort((a,b)=>(a.creneau===b.creneau?0:a.creneau==='matin'?-1:1)||(a.ordre??99)-(b.ordre??99));
 const byId=()=>Object.fromEntries(collabs().map((c,i)=>[c.id,c]));
+const enDoublure=(c,d)=>!!(c&&c.doublure&&c.doublure.tuteur&&c.doublure.jusqu&&d<=c.doublure.jusqu);
 const inRotation=(c,d)=>c.actif&&(!c.debut||c.debut<=d)&&(!c.fin||c.fin>=d);
 const initials=n=>{const w=String(n||'?').replace(/\(.*?\)/g,'').trim().split(/\s+/).filter(Boolean);return ((w[0]||'?')[0]+(w.length>1?(/\d/.test(w[1])?w[1]:w[1][0]):'')).toUpperCase().slice(0,3)};
 const hue=c=>`var(--c${((c?.couleur||1)-1)%NCOL+1})`;
@@ -484,14 +518,14 @@ function compute(from,to){
   const team=collabs(),ids=new Set(team.map(c=>c.id)),C=Object.fromEntries(team.map(c=>[c.id,c]));
   let queue=team.map(c=>c.id);
   const rebases=Object.entries(state.ordres||{}).map(([k,v])=>({d:v.depuis||k,ordre:(v.ordre||[]).filter(id=>ids.has(id))})).sort((a,b)=>a.d.localeCompare(b.d));
-  let ri=0;const sub={},out={};
+  let ri=0,lastDoers=[];const sub={},out={};
   const toEnd=id=>{queue=queue.filter(x=>x!==id);queue.push(id)};
   for(;d<=to;d=addDays(d,1)){
     let rebased=false;
     while(ri<rebases.length&&rebases[ri].d<=d){const o=rebases[ri].ordre;queue=[...o,...queue.filter(x=>!o.includes(x))];ri++;rebased=true}
     if(weekday(d)>4)continue;
     const fer=R.feries!==false?ferieName(d):'';
-    const day={iso:d,ferie:fer,matin:[],apresmidi:[],short:{matin:0,apresmidi:0},manual:false,relais:false,absents:[],present:[],queue:[...queue],subFor:{},swapWith:[]};
+    const day={iso:d,ferie:fer,matin:[],apresmidi:[],short:{matin:0,apresmidi:0},manual:false,relais:false,absents:[],present:[],queue:[...queue],subFor:{},swapWith:[],doublure:[],evite:[]};
     if(!fer){
       const absM={},absA={};
       for(const c of team){if(!inRotation(c,d))continue;
@@ -499,8 +533,10 @@ function compute(from,to){
         if(m)absM[c.id]=m;if(a)absA[c.id]=a;
         if(m&&a)day.absents.push({id:c.id,a:m,p:'journee'});else if(m)day.absents.push({id:c.id,a:m,p:'matin'});else if(a)day.absents.push({id:c.id,a,p:'apresmidi'});
         if(!m||!a)day.present.push(c.id)}
-      const full=id=>C[id]&&inRotation(C[id],d)&&!absM[id]&&!absA[id];
-      const holders=()=>queue.filter(full).slice(0,need);
+      const full=id=>C[id]&&inRotation(C[id],d)&&!enDoublure(C[id],d)&&!absM[id]&&!absA[id];
+      // règles souples : jour à éviter, pas deux tours de suite. La personne écartée garde sa place et passe le jour suivant.
+      const avoid=id=>(C[id].eviter||[]).includes(weekday(d))||(R.pasDeSuite!==false&&lastDoers.includes(id));
+      const holders=()=>{const el=queue.filter(full),ok=el.filter(id=>!avoid(id));const pick=[...ok,...el.filter(avoid)].slice(0,need);day.evite=el.filter(id=>avoid(id)&&!pick.includes(id)&&queue.indexOf(id)<queue.indexOf(pick[pick.length-1]??id));return pick};
       const ov=cellOf(d);
       if(ov){
         day.manual=ov.mode;const sel=ov.ids.filter(id=>ids.has(id));
@@ -519,12 +555,15 @@ function compute(from,to){
         h.forEach(toEnd);
         day.matin=[...doers];day.apresmidi=[...doers];
         if(doers.length<need){
-          const fill=(slot,abs)=>{const extra=queue.filter(id=>C[id]&&inRotation(C[id],d)&&!abs[id]&&!day[slot].includes(id)).slice(0,need-day[slot].length);if(extra.length){day.relais=true;day[slot].push(...extra);extra.forEach(toEnd)}};
+          const fill=(slot,abs)=>{const extra=queue.filter(id=>C[id]&&inRotation(C[id],d)&&!enDoublure(C[id],d)&&!abs[id]&&!day[slot].includes(id)).slice(0,need-day[slot].length);if(extra.length){day.relais=true;day[slot].push(...extra);extra.forEach(toEnd)}};
           fill('matin',absM);fill('apresmidi',absA);
         }
       }
       day.short.matin=Math.max(0,need-day.matin.length);day.short.apresmidi=Math.max(0,need-day.apresmidi.length);
-    }
+      const doers=dutyIds(day);
+      day.doublure=team.filter(c=>enDoublure(c,d)&&doers.includes(c.doublure.tuteur)&&!absM[c.id]&&!absA[c.id]).map(c=>c.id);
+      lastDoers=doers;
+    } else lastDoers=[];
     day.rebased=rebased;
     if(d>=from)out[d]=day;
   }
@@ -584,7 +623,9 @@ function checklist(d,opts={}){
   const items=SLOTS.map(sl=>{const mine=slotTasks(ts,sl.id);if(!mine.length)return '';
     const doer=P[sl.id];
     return `<div class="todo-group"><div class="eyebrow">${sl.label}${P.relais&&doer.length?' · '+esc(doer.map(id=>C[id]?.nom).join(', ')):''}</div>${mine.map(t=>{const x=j.done?.[t.id];
-      return `<label class="todo ${x?'done':''}"><input type="checkbox" data-todo="${t.id}" data-d="${d}" ${x?'checked':''} ${can?'':'disabled'}><span class="tick" aria-hidden="true"></span><span class="tx"><b>${esc(t.nom)}</b>${t.desc?`<small>${esc(t.desc)}</small>`:''}</span><span class="when">${x?`Fait à ${esc(x.at)}${nm(x.by)?' · '+esc(nm(x.by)):''}`:''}</span></label>`}).join('')}</div>`}).join('');
+      const vol=j.vol?.[t.id];
+      return `<div class="todo ${x?'done':''}"><label class="todo-l"><input type="checkbox" data-todo="${t.id}" data-d="${d}" ${x?'checked':''} ${can?'':'disabled'}><span class="tick" aria-hidden="true"></span><span class="tx"><b>${esc(t.nom)}</b>${t.desc?`<small>${esc(t.desc)}</small>`:''}<span class="when">${x?`Fait à ${esc(x.at)}${nm(x.by)?' · '+esc(nm(x.by)):''}`:''}</span></span></label>
+        <label class="vol"><span class="sr">Volume ${esc(t.nom)}</span><input type="number" inputmode="numeric" min="0" max="9999" id="vol-${d}-${t.id}" data-vol="${t.id}" data-d="${d}" value="${vol??''}" placeholder="Nb" ${can?'':'disabled'}></label></div>`}).join('')}</div>`}).join('');
   const pct=total?Math.round(n/total*100):0;
   return `<div class="panel check-card">
     <div class="section-title"><div><h3>${opts.title||'Programme du jour'}</h3><p class="muted" style="font-size:.85rem">${DNL[weekday(d)]} ${short(d)} · ${who.length?'de back office : '+esc(who.map(id=>C[id]?.nom).join(', ')):'personne de back office'}</p></div>
@@ -655,6 +696,98 @@ async function acctSearch(cid,q){
   if(!hits.length&&q){const p=document.createElement('p');p.className='muted';p.style.fontSize='.8rem';p.textContent='Aucun collègue trouvé.';box.append(p)}
 }
 
+/* ---------- 9. jours à risque (sous-effectif) ---------- */
+// Effectif d'un jour = personnes de la rotation présentes (1 par journée, 0,5 par demi-journée), hors doublure.
+function effMap(from,to){
+  const R=reglages(),seuil=Math.max(1,+R.seuil||2),plan=compute(from,to),team=collabs();
+  return Object.values(plan).filter(P=>!P.ferie).map(P=>{
+    const inR=team.filter(c=>inRotation(c,P.iso)&&!enDoublure(c,P.iso));
+    let eff=0;for(const c of inR){const ab=P.absents.find(x=>x.id===c.id);eff+=ab?(ab.p==='journee'?0:.5):1}
+    const level=(P.short.matin||P.short.apresmidi)?'crit':eff<seuil?'warn':null;
+    return {d:P.iso,eff,level,absents:P.absents,seuil};
+  });
+}
+const riskDays=(from,to)=>effMap(from,to).filter(r=>r.level);
+const fmtN=v=>String(Math.round(v*10)/10).replace('.',',');
+function riskPanel(){
+  const to=addDays(TODAY,91),list=riskDays(TODAY,to),C=byId(),seuil=Math.max(1,+reglages().seuil||2);
+  const rows=list.slice(0,24).map(r=>`<div class="risk ${r.level}"><span class="mono">${DN[weekday(r.d)]} ${short(r.d)}</span>
+    <span class="pill ${r.level}">${r.level==='crit'?'Back office non couvert':`${fmtN(r.eff)} présent${r.eff>1?'s':''}`}</span>
+    <span class="stack">${r.absents.map(x=>`<span class="abs ${x.a.type||'autre'}">${esc(initials(C[x.id]?.nom))}${x.p!=='journee'?' ('+SLOTL[x.p].toLowerCase()+')':''}</span>`).join('')}</span></div>`).join('');
+  return `<div class="panel" style="margin-bottom:20px"><div class="section-title"><div><h2>Jours à risque</h2><p class="muted" style="font-size:.85rem">Les 3 prochains mois, jours où l'agence compte moins de ${seuil} personne${seuil>1?'s':''} présente${seuil>1?'s':''} ou sans back office. Seuil réglable dans Tâches et réglages.</p></div><span class="pill ${list.length?(list.some(r=>r.level==='crit')?'crit':'warn'):'ok'}">${list.length?`${list.length} jour${list.length>1?'s':''}`:'Aucun'}</span></div>
+    ${list.length?`<div class="risks">${rows}</div>${list.length>24?`<p class="muted" style="font-size:.8rem">… et ${list.length-24} autres.</p>`:''}`:'<p class="muted">L\'effectif est suffisant sur toute la période.</p>'}</div>`;
+}
+// impact d'une absence en cours de saisie, avant de l'enregistrer
+function absImpact(){
+  const box=$('#a-impact');if(!box)return;
+  const v=id=>$('#'+id)?.value;const cid=v('a-collab'),du=v('a-du'),au=v('a-au'),portion=v('a-portion');
+  if(!cid||!du||!au||au<du||ordinal(au)-ordinal(du)>200){box.innerHTML='';return}
+  const before=new Map(riskDays(du,au).map(r=>[r.d,r]));
+  const after=withState({absences:{...state.absences,__apercu:{collab:cid,du,au,type:'autre',portion}}},()=>riskDays(du,au));
+  const worse=after.filter(r=>{const b=before.get(r.d);return !b||(b.level!=='crit'&&r.level==='crit')||r.eff<b.eff&&b.level!==r.level});
+  box.innerHTML=worse.length?`<div class="impact"><b>Attention :</b> cette absence ferait passer ${worse.length} jour${worse.length>1?'s':''} en sous-effectif : ${worse.slice(0,6).map(r=>`${DN[weekday(r.d)]} ${short(r.d)} (${r.level==='crit'?'sans back office':fmtN(r.eff)+' présent'+(r.eff>1?'s':'')})`).join(', ')}${worse.length>6?'…':''}.</div>`
+    :'<div class="impact ok">Aucun jour ne passe en sous-effectif avec cette absence.</div>';
+}
+
+/* ---------- 11. indicateurs d'activité ---------- */
+function vActivite(){
+  if(isEmpty())return emptyState();
+  const R=reglages(),ts=taches(),C=byId(),start=monday(R.debut),end=TODAY;
+  const P={'4w':[addDays(monday(TODAY),-21),'4 semaines'],'12w':[addDays(monday(TODAY),-77),'12 semaines'],'month':[TODAY.slice(0,8)+'01','Mois en cours'],'all':[start,'Depuis le début']};
+  const per=ui.actPeriod&&P[ui.actPeriod]?ui.actPeriod:'12w';let from=P[per][0];if(from<start)from=start;
+  const plan=compute(from,end);
+  const days=Object.keys(plan).sort().filter(d=>!plan[d].ferie);
+  const withVol=days.filter(d=>Object.keys(journal(d).vol||{}).length);
+  const complete=days.filter(d=>{const g=progress(d);return g.total&&g.n===g.total}).length;
+  const seg=`<div class="seg" role="group" aria-label="Période">${Object.entries(P).map(([k,v])=>`<button data-act="actp" data-v="${k}" aria-pressed="${per===k}">${v[1]}</button>`).join('')}</div>`;
+  const head=`<div class="section-title"><div><h2>Activité du back office</h2><p class="muted">Volumes saisis dans le programme du jour, du ${short(from)} à aujourd'hui.</p></div>${seg}</div>`;
+  if(!withVol.length)return head+`<div class="empty" style="margin-top:14px"><h3>Pas encore de volumes saisis</h3><p class="muted">Dans le programme du jour (onglet Planning), indiquez pour chaque tâche le nombre traité : mails, alertes, appels… Les indicateurs apparaîtront ici.</p><button class="btn primary" data-tab="planning">Aller au programme du jour</button></div>`;
+  const tot={},cnt={};ts.forEach(t=>{tot[t.id]=0;cnt[t.id]=0});
+  for(const d of withVol){const v=journal(d).vol;for(const t of ts)if(v[t.id]!=null&&v[t.id]!==''){tot[t.id]+=+v[t.id];cnt[t.id]++}}
+  const tiles=`<div class="tiles">
+    <div class="tile"><span class="eyebrow">Jours saisis</span><b class="mono">${withVol.length}</b><small>sur ${days.length} jours ouvrés</small></div>
+    <div class="tile"><span class="eyebrow">Programme complet</span><b class="mono">${days.length?Math.round(complete/days.length*100):0} %</b><small>${complete} jour${complete>1?'s':''} à 100 %</small></div>
+    ${ts.map(t=>`<div class="tile"><span class="eyebrow">${esc(t.nom)}</span><b class="mono">${fmtN(tot[t.id])}</b><small>${cnt[t.id]?`${fmtN(tot[t.id]/cnt[t.id])} par jour en moyenne`:'aucune saisie'}</small></div>`).join('')}</div>`;
+  // une petite courbe en barres par tâche : total par semaine
+  const weeks=[];for(let m=monday(from);m<=end;m=addDays(m,7))weeks.push(m);
+  const charts=ts.map(t=>{
+    const data=weeks.map(m=>{let s=0,n=0;for(let i=0;i<5;i++){const d=addDays(m,i);const v=journal(d).vol?.[t.id];if(d>=from&&d<=end&&v!=null&&v!==''){s+=+v;n++}}return {m,s,n}});
+    return barChart(t.nom,data);
+  }).join('');
+  // par collaborateur : moyenne par jour de back office saisi
+  const by={};for(const d of withVol){const ids=dutyIds(plan[d]);const v=journal(d).vol;for(const id of ids){by[id]??={n:0,t:{}};by[id].n++;for(const t of ts)if(v[t.id]!=null&&v[t.id]!=='')by[id].t[t.id]=(by[id].t[t.id]||0)+(+v[t.id])/ids.length}}
+  const people=Object.keys(by).map(id=>C[id]).filter(Boolean);
+  const table=`<div class="grid-wrap" style="margin-top:20px"><table class="eq" style="min-width:560px"><caption class="sr">Moyenne par jour de back office et par collaborateur</caption><thead><tr><th>Collaborateur</th><th>Jours saisis</th>${ts.map(t=>`<th>${esc(t.nom)} / jour</th>`).join('')}</tr></thead>
+    <tbody>${people.map(c=>`<tr><td>${chip(c)}</td><td class="num">${by[c.id].n}</td>${ts.map(t=>`<td class="num">${by[c.id].t[t.id]!=null?fmtN(by[c.id].t[t.id]/by[c.id].n):'—'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  return head+tiles+`<h3 style="margin:22px 0 10px">Volume par semaine</h3><div class="charts">${charts}</div>`+table+
+    `<p class="muted" style="font-size:.82rem;margin-top:10px">Les moyennes ne comptent que les jours où un volume a été saisi. Un jour en relais est réparti entre les deux personnes.</p>`;
+}
+function barChart(title,data){
+  const W=320,H=150,pl=34,pr=8,pt=10,pb=24,iw=W-pl-pr,ih=H-pt-pb;
+  const max=Math.max(1,...data.map(x=>x.s));
+  const step=Math.pow(10,Math.floor(Math.log10(max)));const nice=[1,2,2.5,5,10].map(k=>k*step).find(v=>v*4>=max)||step*10;
+  const top=Math.ceil(max/nice)*nice,ticks=[];for(let v=0;v<=top+1e-9;v+=nice)ticks.push(v);
+  const y=v=>pt+ih-(v/top)*ih,bw=Math.max(4,iw/data.length-2);
+  const every=Math.ceil(data.length/6);
+  const bars=data.map((x,i)=>{const X=pl+i*(iw/data.length)+1,h=Math.max(0,ih-(y(x.s)-pt)),Y=y(x.s);const r=Math.min(4,bw/2,h);
+    const path=h>0?`M${X},${pt+ih}V${Y+r}Q${X},${Y} ${X+r},${Y}H${X+bw-r}Q${X+bw},${Y} ${X+bw},${Y+r}V${pt+ih}Z`:'';
+    const tip=`Semaine ${isoWeek(x.m)} (${short(x.m)}) · ${fmtN(x.s)} ${title.toLowerCase()}${x.n?` · ${fmtN(x.s/x.n)} par jour (${x.n} j saisi${x.n>1?'s':''})`:' · aucune saisie'}`;
+    return `<g class="bar" tabindex="0" data-tip="${esc(tip)}"><rect x="${X-1}" y="${pt}" width="${bw+2}" height="${ih}" fill="transparent"/>${path?`<path d="${path}" fill="var(--accent)"/>`:''}</g>`+(i%every===0?`<text x="${X+bw/2}" y="${H-6}" text-anchor="middle" class="ax">S${isoWeek(x.m)}</text>`:'')}).join('');
+  const grid=ticks.map(v=>`<line x1="${pl}" x2="${W-pr}" y1="${y(v)}" y2="${y(v)}" class="gl"/><text x="${pl-6}" y="${y(v)+4}" text-anchor="end" class="ax">${fmtN(v)}</text>`).join('');
+  const total=data.reduce((a,x)=>a+x.s,0);
+  return `<figure class="chart"><figcaption><b>${esc(title)}</b><span class="muted mono">${fmtN(total)} au total</span></figcaption><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(title)} par semaine">${grid}${bars}</svg></figure>`;
+}
+// infobulle des graphiques
+(function(){let tip=null;
+  const show=(g,x,y)=>{if(!tip){tip=document.createElement('div');tip.className='tip';tip.setAttribute('role','tooltip');document.body.appendChild(tip)}tip.textContent=g.dataset.tip;tip.hidden=false;
+    const r=tip.getBoundingClientRect();tip.style.left=Math.min(window.innerWidth-r.width-8,Math.max(8,x-r.width/2))+'px';tip.style.top=Math.max(8,y-r.height-12)+'px'};
+  const hide=()=>{if(tip)tip.hidden=true};
+  document.addEventListener('mouseover',e=>{const g=e.target.closest&&e.target.closest('.bar');if(g)show(g,e.clientX,e.clientY);else hide()});
+  document.addEventListener('mousemove',e=>{const g=e.target.closest&&e.target.closest('.bar');if(g)show(g,e.clientX,e.clientY)});
+  document.addEventListener('focusin',e=>{const g=e.target.closest&&e.target.closest('.bar');if(g){const r=g.getBoundingClientRect();show(g,r.left+r.width/2,r.top)}});
+  document.addEventListener('focusout',hide);
+})();
+
 /* ---------- rendu ---------- */
 const $=s=>document.querySelector(s);
 let renderPending=false;
@@ -663,8 +796,9 @@ function render(){
   if(ae&&v.contains(ae)&&/INPUT|SELECT|TEXTAREA/.test(ae.tagName)&&ae.type!=='checkbox'&&ae.type!=='radio'){renderPending=true;return}
   renderPending=false;
   renderTabs();renderStatus();renderHero();
-  const f={moi:vMoi,planning:vPlanning,equipe:vEquipe,absences:vAbsences,equite:vEquite,reglages:vReglages}[ui.tab]||vPlanning;
+  const f={moi:vMoi,activite:vActivite,planning:vPlanning,equipe:vEquipe,absences:vAbsences,equite:vEquite,reglages:vReglages}[ui.tab]||vPlanning;
   v.innerHTML=f();
+  if(ui.tab==='absences')absImpact();
   resolveNames();
 }
 document.addEventListener('focusout',()=>setTimeout(()=>{if(renderPending)render()},0));
@@ -672,7 +806,7 @@ document.addEventListener('focusout',()=>setTimeout(()=>{if(renderPending)render
 function renderTabs(){
   const nAbs=Object.values(state.absences).filter(a=>a.au>=TODAY).length;
   const nTeam=collabs().filter(c=>inRotation(c,TODAY)).length;
-  const T=[['moi','Mon planning',''],['planning','Planning',''],['equipe','Équipe',nTeam],['absences','Absences',nAbs||''],['equite','Équité',''],['reglages','Tâches et réglages','']];
+  const T=[['moi','Mon planning',''],['planning','Planning',''],['equipe','Équipe',nTeam],['absences','Absences',nAbs||''],['equite','Équité',''],['activite','Activité',''],['reglages','Tâches et réglages','']];
   $('#tabs').innerHTML=T.map(([id,l,n])=>`<button role="tab" data-tab="${id}" aria-selected="${ui.tab===id}">${l}${n!==''?`<span class="n">${n}</span>`:''}</button>`).join('');
 }
 function renderHero(){
@@ -710,7 +844,8 @@ function vPlanning(){
     absSet.size?`<span class="pill info"><b>${absSet.size}</b> absent${absSet.size>1?'s':''} dans la semaine</span>`:`<span class="pill">Aucune absence</span>`,
     shortN?`<span class="pill crit"><b>${shortN}</b> demi-journée${shortN>1?'s':''} sans back office</span>`:`<span class="pill ok">Back office assuré toute la semaine</span>`,
     relais?`<span class="pill warn"><b>${relais}</b> jour${relais>1?'s':''} en relais</span>`:'',
-    ...ferL.map(f=>`<span class="pill warn">Férié · ${f}</span>`)].join('');
+    ...ferL.map(f=>`<span class="pill warn">Férié · ${f}</span>`),
+    (()=>{const r=riskDays(TODAY,addDays(TODAY,91));return r.length?`<button class="pill ${r.some(x=>x.level==='crit')?'crit':'warn'} pill-btn" data-tab="absences">${r.length} jour${r.length>1?'s':''} à risque sur 3 mois →</button>`:''})()].join('');
   const head=`<div class="toolbar">
     <div class="weeknav"><button class="icon-btn" data-act="wk" data-n="-7" aria-label="Semaine précédente">‹</button>
       <div class="weeklabel"><span class="eyebrow">Semaine ${isoWeek(m)}</span><b>${longd(m)} – ${longd(addDays(m,4))} ${parse(m).getFullYear()}</b></div>
@@ -734,7 +869,7 @@ function gridJour(days,plan,C,ts){
     if(P.ferie){body+=`<td class="off"></td>`;continue}
     const ids=dutyIds(P),sh=P.short.matin+P.short.apresmidi;
     const ch=ids.map(id=>{const half=!P.matin.includes(id)?' (ap.-midi)':!P.apresmidi.includes(id)?' (matin)':'';return chip(C[id],'big')+(half?`<span class="muted" style="font-size:.74rem">${half.trim()}</span>`:'')}).join('');
-    body+=td(d,`<button class="cell duty-cell ${sh?'short':''}" data-act="cell" data-d="${d}" ${canWrite?'':'disabled'} aria-label="Back office du ${DNL[weekday(d)]} ${short(d)}">${ch||'<span class="muted">Personne</span>'}${sh?`<span class="flag crit">${P.short.matin&&P.short.apresmidi?'Non couvert':P.short.matin?'Matin non couvert':'Ap.-midi non couvert'}</span>`:''}${P.relais?'<span class="flag warn">Relais</span>':''}${d<=TODAY&&ids.length?(()=>{const g=progress(d);return g.total?`<span class="flag ${g.n===g.total?'ok':d<TODAY?'crit':'warn'}">✓ ${g.n}/${g.total}</span>`:''})():''}${P.manual==='echange'||Object.keys(P.subFor).length?'<span class="flag man">Échange</span>':P.manual?'<span class="flag man">Avancé</span>':''}</button>`);
+    body+=td(d,`<button class="cell duty-cell ${sh?'short':''}" data-act="cell" data-d="${d}" ${canWrite?'':'disabled'} aria-label="Back office du ${DNL[weekday(d)]} ${short(d)}">${ch||'<span class="muted">Personne</span>'}${sh?`<span class="flag crit">${P.short.matin&&P.short.apresmidi?'Non couvert':P.short.matin?'Matin non couvert':'Ap.-midi non couvert'}</span>`:''}${P.doublure.map(id=>`<span class="flag man">+ ${esc(C[id]?.nom)} en doublure</span>`).join('')}${P.evite.length?`<span class="flag-txt" title="Écarté ce jour-là (jour à éviter ou tour la veille)">${esc(P.evite.map(id=>initials(C[id]?.nom)).join(', '))} décalé</span>`:''}${P.relais?'<span class="flag warn">Relais</span>':''}${d<=TODAY&&ids.length?(()=>{const g=progress(d);return g.total?`<span class="flag ${g.n===g.total?'ok':d<TODAY?'crit':'warn'}">✓ ${g.n}/${g.total}</span>`:''})():''}${P.manual==='echange'||Object.keys(P.subFor).length?'<span class="flag man">Échange</span>':P.manual?'<span class="flag man">Avancé</span>':''}</button>`);
   }
   body+='</tr>';
   for(const sl of SLOTS){
@@ -778,6 +913,12 @@ function vEquipe(){
         <label class="f"><span>Arrivée (optionnel)</span><input type="date" id="deb-${c.id}" data-f="debut" value="${esc(c.debut||'')}" ${dis}></label>
         <label class="f"><span>Départ (optionnel)</span><input type="date" id="fin-${c.id}" data-f="fin" value="${esc(c.fin||'')}" ${dis}></label>
         <div class="f"><span>Couleur</span><div class="swatches">${Array.from({length:NCOL},(_,i)=>`<button class="sw" style="--h:var(--c${i+1})" data-act="color" data-id="${c.id}" data-c="${i+1}" aria-pressed="${(c.couleur||1)===i+1}" aria-label="Couleur ${i+1}" ${dis}></button>`).join('')}</div></div>
+      </div>
+      <div class="row" style="align-items:flex-start;gap:16px 24px">
+        <div class="f"><span>Jours à éviter (si possible)</span><div class="daypick">${DN.map((v,i)=>`<label class="dp"><input type="checkbox" data-evit="${i}" ${(c.eviter||[]).includes(i)?'checked':''} ${dis}><span>${v}</span></label>`).join('')}</div></div>
+        <div class="f"><span>Intégration en doublure</span><div class="row" style="gap:8px"><select id="dbl-t-${c.id}" data-dbl="tuteur" ${dis}><option value="">Pas de doublure</option>${collabs().filter(x=>x.id!==c.id&&x.actif).map(x=>`<option value="${x.id}" ${c.doublure?.tuteur===x.id?'selected':''}>Avec ${esc(x.nom)}</option>`).join('')}</select>
+          ${c.doublure?.tuteur?`<input type="date" id="dbl-j-${c.id}" data-dbl="jusqu" value="${esc(c.doublure.jusqu||'')}" aria-label="Doublure jusqu'au" ${dis}>`:''}</div>
+          ${c.doublure?.tuteur?`<small class="muted">${c.doublure.jusqu?`Accompagne ${esc(byId()[c.doublure.tuteur]?.nom)} jusqu'au ${short(c.doublure.jusqu)}, puis entre dans la rotation.`:'Indiquez la date de fin de doublure.'}</small>`:''}</div>
       </div>
       ${acctBlock(c,dis)}
       <div class="row" style="justify-content:space-between"><div class="row"><button class="btn ghost" data-act="up" data-id="${c.id}" ${dis}>↑ Monter</button><button class="btn ghost" data-act="down" data-id="${c.id}" ${dis}>↓ Descendre</button></div>
@@ -861,7 +1002,8 @@ function absCalendar(){
     <div class="row"><button class="icon-btn" data-act="cal" data-n="-1" aria-label="Mois précédent">‹</button><button class="btn ghost" data-act="cal0">Aujourd'hui</button><button class="icon-btn" data-act="cal" data-n="1" aria-label="Mois suivant">›</button></div></div>
     <div class="grid-wrap" style="border:0"><table class="cal"><thead><tr><th></th>${months.map(m=>`<th colspan="${m.n}" class="cal-m">${m.label}</th>`).join('')}</tr>
     <tr><th></th>${days.map(d=>`<th class="cal-d ${weekday(d)===0?'cal-w':''} ${d===TODAY?'cal-t':''}">${+d.slice(8)}</th>`).join('')}</tr></thead>
-    <tbody>${C.map(c=>`<tr><th class="cal-n">${chip(c,'sm')}</th>${days.map(d=>cell(c,d)).join('')}</tr>`).join('')}</tbody></table></div>
+    <tbody>${C.map(c=>`<tr><th class="cal-n">${chip(c,'sm')}</th>${days.map(d=>cell(c,d)).join('')}</tr>`).join('')}
+    ${(()=>{const em=Object.fromEntries(effMap(days[0],days[days.length-1]).map(r=>[r.d,r]));return `<tr class="cal-eff"><th class="cal-n"><span class="muted" style="font-size:.78rem;font-weight:600">Présents</span></th>${days.map(d=>{const r=em[d];if(!r)return '<td class="cal-f"></td>';return `<td class="ce ${r.level||''}" title="${DNL[weekday(d)]} ${short(d)} · ${fmtN(r.eff)} présent${r.eff>1?'s':''}">${(Math.floor(r.eff)||(r.eff%1?'':'0'))+(r.eff%1?'½':'')}</td>`}).join('')}</tr>`})()}</tbody></table></div>
     <div class="row" style="gap:12px;font-size:.8rem">${['conge','rtt','maladie','formation','tempspartiel','autre'].map(k=>`<span class="row" style="gap:5px"><i class="key" style="background:var(--k-${k})"></i>${ABS[k]}</span>`).join('')}<span class="row" style="gap:5px"><i class="key cal-f"></i>Férié</span></div></div>`;
 }
 
@@ -884,6 +1026,7 @@ function vAbsences(){
       <div class="row"><label class="f grow"><span>Motif</span><select id="a-type" ${dis}>${Object.entries(ABS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></label>
       <label class="f grow"><span>Sur la période</span><select id="a-portion" ${dis}>${Object.entries(PORT).map(([k,v])=>`<option value="${k}">${k==='journee'?'Journées entières':v+' seulement'}</option>`).join('')}</select></label></div>
       <label class="f"><span>Note (optionnel)</span><input type="text" id="a-note" placeholder="ex. retour prévu lundi" ${dis}></label>
+      <div id="a-impact"></div>
       <div id="a-err" style="color:var(--crit);font-size:.85rem"></div>
       <div><button class="btn primary" type="submit" ${dis}>Ajouter l'absence</button></div>
       <p class="muted" style="font-size:.82rem">Toutes les dates sont acceptées, y compris dans plusieurs mois. Le planning se recalcule aussitôt : le tour de back office passe au collègue suivant.</p></form>`;
@@ -906,7 +1049,7 @@ function vAbsences(){
   const bulk=`<div class="panel"><p class="muted" style="font-size:.85rem">Une ligne par absence : <b>nom ; du ; au ; motif ; matin ou après-midi</b>. Seuls le nom et la première date sont obligatoires. Vous pouvez coller directement des colonnes copiées depuis Excel.</p>
       <label class="f"><span>Absences prévues</span><textarea id="bulk-text" rows="7" placeholder="${esc(ex)}" ${dis}>${esc(ui.bulkText||'')}</textarea></label>
       <div id="bulk-preview">${bulkPreview()}</div></div>`;
-  return `<div class="cols">
+  return riskPanel()+`<div class="cols">
     <div style="display:grid;gap:12px;min-width:0"><div class="section-title"><h2>Enregistrer des absences</h2>
       <div class="seg" role="group" aria-label="Mode de saisie"><button data-act="absmode" data-v="un" aria-pressed="${!['plusieurs','rec'].includes(ui.absMode)}">Une absence</button><button data-act="absmode" data-v="plusieurs" aria-pressed="${ui.absMode==='plusieurs'}">Plusieurs à la fois</button><button data-act="absmode" data-v="rec" aria-pressed="${ui.absMode==='rec'}">Récurrente</button></div></div>
       ${ui.absMode==='plusieurs'?bulk:ui.absMode==='rec'?recurring:single}</div>
@@ -954,6 +1097,8 @@ function vReglages(){
       <div class="row"><label class="f"><span>Début de la rotation</span><input type="date" id="r-debut" data-rf="debut" value="${esc(R.debut)}" ${dis}></label>
       <label class="f"><span>Personnes de back office par jour</span><input type="number" id="r-parjour" data-rf="parJour" min="1" max="5" value="${Math.max(1,+R.parJour||1)}" ${dis}></label>
       <label class="check" style="padding-bottom:8px"><input type="checkbox" id="r-feries" data-rf="feries" ${R.feries!==false?'checked':''} ${dis}> Jours fériés français non travaillés</label></div>
+      <div class="row"><label class="f"><span>Effectif minimum de l'agence (alerte)</span><input type="number" id="r-seuil" data-rf="seuil" min="1" max="20" value="${Math.max(1,+R.seuil||2)}" ${dis}></label>
+      <label class="check" style="padding-bottom:8px"><input type="checkbox" id="r-suite" data-rf="pasDeSuite" ${R.pasDeSuite!==false?'checked':''} ${dis}> Éviter deux tours de back office de suite</label></div>
       <p class="muted" style="font-size:.84rem">La rotation est calculée jour par jour à partir de cette date : chaque jour, on retient la personne présente toute la journée qui a été de back office il y a le plus longtemps. Changer la date redistribue tout le planning.</p>
       <div><button class="btn danger" data-act="clearov" ${dis}>Effacer tous les choix manuels</button></div>
     </div>
@@ -1095,6 +1240,7 @@ document.addEventListener('click',e=>{
     case 'wk':ui.week=addDays(ui.week,+b.dataset.n);render();break;
     case 'wk0':ui.week=CUR();render();break;
     case 'view':ui.view=b.dataset.v;saveUi();render();break;
+    case 'actp':ui.actPeriod=b.dataset.v;render();break;
     case 'eqp':ui.eqPeriod=b.dataset.v;saveUi();render();break;
     case 'cell':openCell(b.dataset.d);break;
     case 'copy':{const txt=weekText();const fb=()=>{$('#layer').innerHTML=`<div class="overlay" data-act="close"><div class="modal"><h3>Planning de la semaine</h3><textarea id="copytxt" rows="12" readonly>${esc(txt)}</textarea><div><button class="btn" data-act="close">Fermer</button></div></div></div>`;const t=$('#copytxt');t.focus();t.select()};
@@ -1115,13 +1261,17 @@ document.addEventListener('change',e=>{
   const el=e.target;
   const card=el.closest('.person');
   if(card){const id=card.dataset.id,c={...state.equipe[id]};
+    if(el.dataset.evit!==undefined){c.eviter=[...card.querySelectorAll('[data-evit]')].filter(x=>x.checked).map(x=>+x.dataset.evit)}
+    if(el.dataset.dbl){const t=card.querySelector('[data-dbl=tuteur]').value,j=card.querySelector('[data-dbl=jusqu]')?.value||c.doublure?.jusqu||addDays(TODAY,14);if(t)c.doublure={tuteur:t,jusqu:j};else delete c.doublure}
     if(el.dataset.f){c[el.dataset.f]=el.type==='checkbox'?el.checked:el.value.trim();if(el.dataset.f==='nom'&&!c.nom)c.nom='Sans nom'}
     if(c.debut&&c.fin&&c.fin<c.debut){toast("La date de départ précède l'arrivée.");return}
     put('equipe',id,c);return}
   const tr=el.closest('tr[data-tid]');
   if(tr&&el.dataset.tf){const id=tr.dataset.tid,t={...state.taches[id]};let v=el.value.trim();if(el.dataset.tf==='nom'&&!v)v='Tâche sans nom';t[el.dataset.tf]=v;put('taches',id,t);return}
-  if(el.dataset.rf){const R={...reglages()};let v=el.type==='checkbox'?el.checked:el.value;if(el.dataset.rf==='parJour')v=Math.max(1,Math.min(5,parseInt(v,10)||1));R[el.dataset.rf]=v;if(!R.debut)return;put('reglages','general',R);return}
+  if(el.dataset.rf){const R={...reglages()};let v=el.type==='checkbox'?el.checked:el.value;if(el.dataset.rf==='parJour')v=Math.max(1,Math.min(5,parseInt(v,10)||1));if(el.dataset.rf==='seuil')v=Math.max(1,Math.min(20,parseInt(v,10)||2));R[el.dataset.rf]=v;if(!R.debut)return;put('reglages','general',R);return}
   if(el.id==='ord-from'&&ui.orderDraft){ui.orderDraft.applyFrom=el.value||ui.orderDraft.from;render();return}
+  if(el.dataset.vol){const d=el.dataset.d,j=journal(d),vol={...(j.vol||{})};const n=el.value===''?null:Math.max(0,Math.min(9999,parseInt(el.value,10)||0));if(n===null)delete vol[el.dataset.vol];else vol[el.dataset.vol]=n;jput(d,{...j,done:j.done||{},vol});return}
+  if(el.closest('#absform')&&/^a-(collab|du|au|portion)$/.test(el.id)){if(el.id==='a-du'){const au=$('#a-au');if(au&&au.value<el.value)au.value=el.value}absImpact();return}
   if(el.dataset.todo){tick(el.dataset.d,el.dataset.todo,el.checked);return}
   if(el.dataset.jnote){const d=el.dataset.jnote,j=journal(d);if((j.note||'')!==el.value.trim())jput(d,{...j,done:j.done||{},note:el.value.trim()});return}
   if(el.dataset.recau){const id=el.dataset.recau,a={...state.absences[id]};if(el.value&&el.value<a.du){toast('La date de fin doit suivre la date de début.');return}a.au=el.value||'';put('absences',id,a);toast(el.value?`Récurrence arrêtée après le ${short(el.value)}.`:'Récurrence sans date de fin.');return}

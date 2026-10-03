@@ -6,13 +6,13 @@ import assert from 'node:assert/strict';
 
 const html = readFileSync(fileURLToPath(new URL('../index.html', import.meta.url)), 'utf8');
 let js = html.match(/<script>([\s\S]*)<\/script>/)[1];
-js = js.replace('/* ---------- démarrage', 'globalThis.__t={compute,state,defaults,dutyIds,recLabel,parseBulk,vMoi,checklist,canTick,tick,progress,myCollab,ui};return;/*');
+js = js.replace('/* ---------- démarrage', 'globalThis.__t={compute,state,defaults,dutyIds,recLabel,parseBulk,vMoi,checklist,canTick,tick,progress,myCollab,ui,riskDays,vActivite,vAbsences,vPlanning,vEquipe,vReglages};return;/*');
 const el = { innerHTML: '', contains: () => false, className: '', addEventListener() {} };
 globalThis.document = { querySelector: () => el, addEventListener() {}, activeElement: null };
 const store = new Map();
 globalThis.localStorage = { getItem: k => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)), removeItem: k => store.delete(k) };
 new Function(js)();
-const { compute, state, defaults, dutyIds, recLabel, parseBulk, vMoi, checklist, canTick, tick, progress, myCollab } = globalThis.__t;
+const { compute, state, defaults, dutyIds, recLabel, parseBulk, vMoi, checklist, canTick, tick, progress, myCollab, ui, riskDays, vActivite, vAbsences, vPlanning, vEquipe, vReglages } = globalThis.__t;
 
 function reset() {
   Object.assign(state, defaults());
@@ -105,5 +105,43 @@ test('checklist : cocher une tâche met à jour la progression', () => {
 test('checklist : seul le manager ou la personne du jour peut cocher', () => {
   const futur = '2099-01-05';
   assert.equal(canTick(futur, compute(futur, futur)[futur]), false, 'jamais dans le futur');
+});
+test('jour à éviter : la personne passe le lendemain', () => {
+  state.equipe.c3 = { ...state.equipe.c3, eviter: [0] }; // c3 évite le lundi
+  assert.deepEqual(week(), ['c4', 'c3', 'c1', 'c2', 'c4']);
+});
+test('pas deux tours de suite après une absence', () => {
+  // c2 absent le jeudi 01/10 : sans la règle il enchaînerait vendredi et lundi
+  state.absences = { a: { collab: 'c2', du: '2026-10-01', au: '2026-10-01', type: 'rtt', portion: 'journee' } };
+  const p = compute('2026-09-30', '2026-10-06');
+  const seq = Object.values(p).map(d => dutyIds(d)[0]);
+  for (let i = 1; i < seq.length; i++) assert.notEqual(seq[i], seq[i - 1], 'jamais deux jours de suite');
+});
+test('doublure : le nouveau accompagne son tuteur puis entre dans la rotation', () => {
+  state.equipe.c5 = { ...state.equipe.c5, actif: true, doublure: { tuteur: 'c1', jusqu: '2026-10-09' } };
+  const p = compute('2026-10-05', '2026-10-16');
+  assert.ok(!Object.keys(p).filter(d => d <= '2026-10-09').some(d => dutyIds(p[d]).includes('c5')), 'pas seul pendant la doublure');
+  assert.deepEqual(p['2026-10-07'].doublure, ['c5'], 'accompagne c1');
+  assert.ok(Object.keys(p).filter(d => d > '2026-10-09').some(d => dutyIds(p[d]).includes('c5')), 'en rotation ensuite');
+});
+test('jours à risque : sous le seuil ou sans back office', () => {
+  state.absences = {
+    a: { collab: 'c1', du: '2026-10-12', au: '2026-10-12', type: 'conge', portion: 'journee' },
+    b: { collab: 'c2', du: '2026-10-12', au: '2026-10-12', type: 'conge', portion: 'journee' },
+    c: { collab: 'c3', du: '2026-10-12', au: '2026-10-12', type: 'maladie', portion: 'journee' },
+  };
+  let r = riskDays('2026-10-12', '2026-10-13');
+  assert.equal(r.length, 1); assert.equal(r[0].eff, 1); assert.equal(r[0].level, 'warn');
+  state.absences.d = { collab: 'c4', du: '2026-10-12', au: '2026-10-12', type: 'rtt', portion: 'journee' };
+  r = riskDays('2026-10-12', '2026-10-12');
+  assert.equal(r[0].level, 'crit');
+});
+test('indicateurs : volumes saisis et rendu des onglets', () => {
+  ui.actPeriod = 'all';
+  assert.match(vActivite(), /Pas encore de volumes/);
+  state.journal = { '2026-09-28': { done: {}, vol: { t_mails: 20, t_appels: 12 } }, '2026-09-29': { done: {}, vol: { t_mails: 30 } } };
+  const html = vActivite();
+  assert.match(html, /<svg/); assert.match(html, /25 par jour/);
+  for (const v of [vAbsences, vPlanning, vEquipe, vReglages]) assert.ok(v().length > 500);
 });
 console.log(`\n${n} tests réussis`);

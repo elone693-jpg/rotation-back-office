@@ -14,18 +14,21 @@ Outil de planification du back office de l'agence. Chaque jour ouvré, une perso
   - *échange* : la personne prévue reprend le prochain tour du remplaçant ;
   - *décalage* : la personne choisie passe ce jour-là, et les suivants glissent d'un jour.
 - **Ordre de passage** : il peut être redéfini à partir d'une date. Les jours passés ne changent pas.
+- **Règles souples** : jours à éviter par personne, pas deux tours de suite. La personne écartée garde sa place et passe le jour suivant, sauf si personne d'autre n'est disponible.
+- **Doublure** : un nouveau collaborateur accompagne son tuteur jusqu'à une date, puis entre dans la rotation.
+- **Jours à risque** : effectif présent (1 par journée, 0,5 par demi-journée) sous le seuil, ou back office non couvert, sur 3 mois.
 
 ## Données (base partagée de la page)
 
 | Collection | Contenu |
 |---|---|
-| `equipe/<id>` | `nom`, `couleur`, `actif`, `debut`, `fin`, `ordre` |
+| `equipe/<id>` | `nom`, `couleur`, `actif`, `debut`, `fin`, `ordre`, `eviter` (jours 0-4), `doublure` `{tuteur, jusqu}`, `compte` |
 | `taches/<id>` | `nom`, `desc`, `creneau` (`matin` ou `apresmidi`), `ordre` |
 | `absences/<id>` | `collab`, `du`, `au` (vide = sans fin), `type`, `portion` (`journee`, `matin` ou `apresmidi`), `note`, `rec` (récurrence, optionnel) |
 | `affectations/<lundi>` | `cells[date] = {ids, mode: 'echange' ou 'decale'}` |
 | `ordres/<date>` | `{depuis, ordre: [ids]}` |
-| `reglages/general` | `debut`, `feries`, `parJour` |
-| `journal/<date>` | checklist du jour : `done[tacheId] = {at: 'HH:MM', by: userId}`, `note` |
+| `reglages/general` | `debut`, `feries`, `parJour`, `seuil` (effectif minimum), `pasDeSuite` |
+| `journal/<date>` | checklist du jour : `done[tacheId] = {at: 'HH:MM', by: userId}`, `vol[tacheId]` (volume traité), `note` |
 | `liens/<userId>` | nom déclaré par le collègue lui-même : `{collab}` (le lien posé par le manager est `equipe.compte`) |
 
 Récurrence `rec` :
