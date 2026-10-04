@@ -171,5 +171,12 @@ test('synchro : fusion document par document, suppressions propagées', async ()
   assert.equal(E2.mergePayload(fichierB), 0);
   assert.throws(() => E2.mergePayload({ foo: 1 }), /application/);
 });
+test('compteurs : saisie possible sur tous les jours ouvrés, y compris à venir', () => {
+  ui.week = '2099-01-05'; ui.view = 'poste';
+  const html = vPlanning();
+  const champs = html.match(/<input[^>]*data-cpt="[^"]+"[^>]*>/g) || [];
+  assert.equal(champs.length, 15);
+  assert.ok(champs.every(c => !/\sdisabled/.test(c)), 'aucune case bloquée');
+});
 for (const [name, fn] of pending) { reset(); await fn(); n++; console.log('ok -', name); }
 console.log(`\n${n} tests réussis`);

@@ -1039,10 +1039,10 @@ function cptGet(d,k){const j=journal(d);if(k==='ap'){const t=appelsTask();const 
 function cptSet(d,k,n){const j=journal(d),base={...j,done:j.done||{}};
   if(k==='ap'){const t=appelsTask();if(t){const vol={...(j.vol||{})};if(n===null)delete vol[t.id];else vol[t.id]=n;jput(d,{...base,vol});return}}
   const cpt={...(j.cpt||{})};if(n===null)delete cpt[k];else cpt[k]=n;jput(d,{...base,cpt});}
-const cptEditable=(d,P)=>d<=TODAY&&P&&!P.ferie&&(canWrite||canTick(d,P));
+const cptEditable=(d,P)=>!!P&&!P.ferie; // saisie possible tous les jours ouvrés, passés comme à venir
 function cptInput(d,c,P,withLabel){
   const v=cptGet(d,c.k),dis=cptEditable(d,P)?'':'disabled';
-  const inp=`<input type="number" inputmode="numeric" min="0" max="9999" class="cpt-in" id="cpt-${c.k}-${d}" data-cpt="${c.k}" data-d="${d}" value="${v}" placeholder="${d>TODAY?'':'—'}" title="${c.lib}" aria-label="${c.lib}, ${DNL[weekday(d)]} ${short(d)}" ${dis}>`;
+  const inp=`<input type="number" inputmode="numeric" min="0" max="9999" class="cpt-in" id="cpt-${c.k}-${d}" data-cpt="${c.k}" data-d="${d}" value="${v}" placeholder="—" title="${c.lib}" aria-label="${c.lib}, ${DNL[weekday(d)]} ${short(d)}" ${dis}>`;
   return withLabel?`<label class="cpt-f"><abbr title="${c.lib}">${c.ab}</abbr>${inp}</label>`:inp;
 }
 const cptLegend=()=>`<p class="cpt-legend">${CPT.map(c=>`<span><b>${c.ab}</b> ${c.lib.toLowerCase()}</span>`).join('')}</p>`;
