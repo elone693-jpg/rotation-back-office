@@ -2,7 +2,7 @@
 // Page : réseau d'abord (pour recevoir les mises à jour), cache en secours.
 // Icônes, polices et autres fichiers : cache d'abord.
 // Changer VERSION à chaque mise en ligne pour renouveler le cache.
-const VERSION = 'rbo-2026-10-04-2';
+const VERSION = 'rbo-2026-10-04-3';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -14,6 +14,8 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
+  // Jamais de cache pour l'API GitHub : la synchro doit toujours lire la dernière version.
+  if (new URL(req.url).hostname === 'api.github.com') return;
   if (req.mode === 'navigate') {
     e.respondWith(fetch(req).then(res => {
       const copy = res.clone(); caches.open(VERSION).then(c => c.put('./index.html', copy)); return res;

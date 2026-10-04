@@ -1,16 +1,25 @@
 // Prépare le mail de rappel de la veille à partir des données de l'application.
 // Usage : node scripts/rappel.mjs [source] [date-du-jour AAAA-MM-JJ]
-// source : le fichier rotation-back-office.json, ou un dossier qui en contient (le plus récent est pris).
-// Par défaut : iCloud Drive › Rotation back office. Le lien vers l'app vient de RBO_URL (optionnel).
+// source par défaut : le dépôt privé GitHub de la synchro automatique (lu avec `gh`, déjà connecté sur le Mac).
+// Autres sources possibles : un fichier rotation-back-office.json, ou un dossier qui en contient (le plus récent).
+// Si le dépôt est injoignable, repli sur iCloud Drive › Rotation back office. Lien vers l'app : RBO_URL (optionnel).
 // Sortie : JSON {envoyer, sujet, texte} sur la sortie standard.
 import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
+import { execFileSync } from 'node:child_process';
 import { loadEngine } from './engine.mjs';
 
-const DEFAUT = join(homedir(), 'Library/Mobile Documents/com~apple~CloudDocs/Rotation back office');
-const [src = DEFAUT, today] = process.argv.slice(2);
+const DEPOT = 'github:elone693-jpg/rotation-back-office-donnees/donnees.json';
+const ICLOUD = join(homedir(), 'Library/Mobile Documents/com~apple~CloudDocs/Rotation back office');
+const [src = DEPOT, today] = process.argv.slice(2);
 
+function lireGithub(spec) {
+  const [owner, repo, ...chemin] = spec.slice(7).split('/');
+  const gh = [process.env.GH_BIN, join(homedir(), '.local/bin/gh'), 'gh'].find(b => b && (b === 'gh' || existsSync(b)));
+  const b64 = execFileSync(gh, ['api', `repos/${owner}/${repo}/contents/${chemin.join('/')}`, '--jq', '.content'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  return JSON.parse(Buffer.from(b64.replace(/\s/g, ''), 'base64').toString('utf8'));
+}
 function trouverFichier(p) {
   if (!existsSync(p)) return null;
   if (statSync(p).isFile()) return p;
@@ -19,9 +28,15 @@ function trouverFichier(p) {
   lus.sort((a, b) => b.t - a.t);
   return lus[0]?.f || null;
 }
-const fichier = trouverFichier(src);
-if (!fichier) { console.log(JSON.stringify({ envoyer: false, raison: `aucun fichier de données dans ${src}` })); process.exit(0); }
-const payload = JSON.parse(readFileSync(fichier, 'utf8'));
+let payload = null, origine = '';
+if (src.startsWith('github:')) {
+  try { payload = lireGithub(src); origine = 'dépôt GitHub'; } catch (e) { origine = 'iCloud (dépôt GitHub injoignable)'; }
+}
+if (!payload) {
+  const fichier = trouverFichier(src.startsWith('github:') ? ICLOUD : src);
+  if (!fichier) { console.log(JSON.stringify({ envoyer: false, raison: `aucune donnée trouvée (${src})` })); process.exit(0); }
+  payload = JSON.parse(readFileSync(fichier, 'utf8')); origine = origine || 'fichier';
+}
 
 const E = loadEngine({ today });
 const COLS = ['equipe', 'taches', 'absences', 'affectations', 'reglages', 'ordres', 'journal'];
@@ -61,7 +76,8 @@ if (risques.length) {
   for (const r of risques) lignes.push(`- ${jour(r.d)} : ${r.level === 'crit' ? 'back office non couvert' : `${String(r.eff).replace('.', ',')} présent${r.eff > 1 ? 's' : ''}`}`);
 }
 const ageJ = Math.round((Date.now() - Date.parse(payload.exportedAt)) / 864e5);
-if (ageJ >= 2) lignes.push('', `Données synchronisées il y a ${ageJ} jours : pensez à enregistrer depuis l'application pour un rappel à jour.`);
+if (ageJ >= 3) lignes.push('', `Dernière synchronisation il y a ${ageJ} jours : ouvrez l'application pour mettre les données à jour.`);
+if (origine.startsWith('iCloud')) lignes.push('', 'Note : données lues dans la copie iCloud, le dépôt de synchro était injoignable.');
 if (process.env.RBO_URL) lignes.push('', `Application : ${process.env.RBO_URL}`);
 
 console.log(JSON.stringify({ envoyer: true, sujet: `Back office ${jour(cible)} : ${titre}`, texte: lignes.join('\n') }, null, 2));

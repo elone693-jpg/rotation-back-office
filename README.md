@@ -4,8 +4,8 @@ Application autonome (PWA) de planification du back office de l'agence, pour iPh
 
 - **Adresse : https://elone693-jpg.github.io/rotation-back-office/**
 - Fichiers du site : `index.html`, `sw.js` (hors connexion), `manifest.webmanifest`, `icons/`
-- Données : sur chaque appareil (stockage du navigateur). Synchronisation par le fichier `rotation-back-office.json`, dans iCloud Drive › Rotation back office.
-- Aucun serveur, aucun compte : le site ne contient aucune donnée de l'agence.
+- Données : sur chaque appareil (stockage du navigateur), synchronisées automatiquement dans le dépôt GitHub **privé** `elone693-jpg/rotation-back-office-donnees` (fichier `donnees.json`). Une copie manuelle dans iCloud Drive reste possible.
+- Le site public ne contient aucune donnée de l'agence.
 
 ## Mise en ligne sur GitHub Pages
 
@@ -29,14 +29,15 @@ Les appareils prennent la mise à jour à l'ouverture suivante.
 - **iPhone** : ouvrir l'adresse dans Safari › Partager › *Sur l'écran d'accueil*.
 - **Mac** : Safari › Fichier › *Ajouter au Dock* (ou Chrome › Installer l'application).
 
-Au premier lancement : *Récupérer depuis iCloud* et choisir `rotation-back-office.json`.
+Au premier lancement : *Activer la synchro*, puis coller la clé d'accès GitHub (la même sur chaque appareil).
 
-## Synchronisation (bouton « Synchroniser »)
+## Synchronisation automatique
 
-1. **Récupérer** : choisir le fichier dans iCloud Drive › Rotation back office. La fusion garde, élément par élément, la version la plus récente, et les suppressions se propagent.
-2. **Enregistrer** : iPhone › *Enregistrer dans Fichiers* › même dossier › *Remplacer*. Mac : enregistrer dans ce dossier.
-
-Toujours récupérer avant d'enregistrer. Chaque document porte `_t` (horodatage de dernière modification), et les suppressions sont gardées dans `tomb`.
+- **Clé d'accès** : jeton GitHub « fine-grained », limité au dépôt `rotation-back-office-donnees`, avec l'autorisation *Contents : Read and write*. Il est gardé uniquement sur l'appareil et n'est envoyé qu'à `api.github.com`.
+- **Quand** : à l'ouverture, au retour sur l'app, toutes les minutes tant qu'elle est affichée, et 2 s après chaque modification. Sans réseau, l'envoi se fait au retour de la connexion.
+- **Fusion** : élément par élément, la version la plus récente gagne (champ `_t`), et les suppressions se propagent (`tomb`). Si l'autre appareil a écrit entre-temps (409/422), l'app relit, refusionne et renvoie.
+- La comparaison ignore l'ordre des clés, pour éviter que deux appareils se renvoient le fichier sans fin.
+- **Copie iCloud (manuel)** : *Synchro › Copie de sauvegarde dans iCloud Drive*.
 
 ## Fonctionnement de la rotation
 
@@ -79,7 +80,7 @@ Une tâche planifiée de l'app Claude (`rappel-back-office`) lance chaque jour o
 ```bash
 node scripts/rappel.mjs
 ```
-Le script lit le fichier le plus récent d'iCloud Drive › Rotation back office, puis la tâche envoie le résultat par Gmail au propriétaire. Le rappel est donc aussi à jour que le dernier enregistrement fait depuis l'application.
+Le script lit le dépôt privé avec `gh`, déjà connecté sur le Mac. Si le dépôt est injoignable, il se rabat sur la copie iCloud. La tâche envoie ensuite le résultat par Gmail au propriétaire.
 
 Pour tester sans envoyer, à une date choisie :
 ```bash

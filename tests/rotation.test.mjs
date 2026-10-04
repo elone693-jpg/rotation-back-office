@@ -189,5 +189,39 @@ test('planning : case fait / pas fait par tâche, liée à la checklist', () => 
   assert.match(html, /class="tk done"[^>]*data-d="2026-09-28" data-t="t_mails"/);
   assert.equal(progress('2026-09-28').n, 1, 'même donnée que la checklist');
 });
+test('synchro automatique GitHub : fusion, pas d\'envoi inutile, conflit, clé refusée', async () => {
+  const E2 = globalThis.__t;
+  // faux dépôt GitHub en mémoire
+  const remote = { content: null, sha: 0 }; let puts = 0, conflitAFaire = 0, statut = 200;
+  const enc = o => Buffer.from(JSON.stringify(o)).toString('base64');
+  globalThis.fetch = async (url, opt = {}) => {
+    const rep = (status, body) => ({ status, ok: status < 300, json: async () => body });
+    if (statut !== 200) return rep(statut, {});
+    if ((opt.method || 'GET') === 'GET') return remote.content ? rep(200, { sha: String(remote.sha), content: enc(remote.content) }) : rep(404, {});
+    const b = JSON.parse(opt.body);
+    if (conflitAFaire > 0 || (remote.content && b.sha !== String(remote.sha))) { conflitAFaire--; return rep(409, {}); }
+    puts++; remote.sha++; remote.content = JSON.parse(Buffer.from(b.content, 'base64').toString('utf8')); return rep(200, {});
+  };
+  E2.gh.token = 'test'; E2.gh.repo = 'moi/donnees';
+  // l'autre appareil a déjà envoyé une absence
+  remote.content = { app: 'rotation-back-office', format: 1, data: { absences: { r1: { collab: 'c2', du: '2026-11-02', au: '2026-11-02', type: 'rtt', portion: 'journee', _t: 1000 } } }, tomb: {} };
+  remote.sha = 1;
+  await E2.put('absences', 'l1', { collab: 'c1', du: '2026-11-03', au: '2026-11-03', type: 'conge', portion: 'journee' });
+  await E2.syncNow('test');
+  assert.ok(state.absences.r1 && state.absences.l1, 'les deux absences sont sur cet appareil');
+  assert.ok(remote.content.data.absences.r1 && remote.content.data.absences.l1, 'et dans le dépôt');
+  assert.equal(E2.gh.state, 'ok'); assert.equal(puts, 1);
+  // rien de neuf : aucun envoi, même si l'ordre des clés diffère dans le dépôt
+  const d = remote.content.data; remote.content.data = Object.fromEntries(Object.entries(d).reverse());
+  await E2.syncNow('test'); assert.equal(puts, 1, 'pas d\'aller-retour sans fin');
+  // l'autre appareil écrit pendant qu'on envoie : on relit, on refusionne, on renvoie
+  await E2.put('absences', 'l2', { collab: 'c3', du: '2026-11-05', au: '2026-11-05', type: 'conge', portion: 'journee' });
+  conflitAFaire = 1;
+  await E2.syncNow('test');
+  assert.equal(E2.gh.state, 'ok'); assert.ok(remote.content.data.absences.l2, 'envoyé après le conflit');
+  // clé refusée
+  statut = 401; await E2.syncNow('test'); assert.equal(E2.gh.state, 'auth');
+  E2.gh.token = ''; delete globalThis.fetch;
+});
 for (const [name, fn] of pending) { reset(); await fn(); n++; console.log('ok -', name); }
 console.log(`\n${n} tests réussis`);

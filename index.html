@@ -486,6 +486,10 @@ nav.tabs button{flex:none}
 .tk-list .tk.done .tk-l b{color:var(--accent)}
 .tk-list .tk-l span{font-size:.75rem}
 @media (pointer:coarse){.tk{min-height:44px}}
+.sync-on{display:grid;gap:10px}
+.sync-form{display:grid;gap:10px}
+details.icloud{border-top:1px solid var(--line);padding-top:10px}
+details.icloud summary{cursor:pointer;font-weight:600;font-size:.88rem;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -583,7 +587,75 @@ function localSave(){
   const o={__meta:meta};for(const col of COLS)o[col]=state[col];
   try{localStorage.setItem(LS,JSON.stringify(o))}catch(e){toast("Stockage plein ou indisponible : exportez vos données vers iCloud.")}
 }
-function touch(){meta.dirty=true;localSave()}
+function touch(){meta.dirty=true;localSave();scheduleSync()}
+/* ---------- synchronisation automatique via un dépôt GitHub privé ----------
+   Le fichier donnees.json du dépôt privé fait foi. À l'ouverture, au retour sur l'app, toutes les
+   minutes et 2 s après chaque modification : on lit le fichier, on fusionne (mergePayload garde la
+   version la plus récente de chaque élément), puis on renvoie si cet appareil a du nouveau.
+   Un envoi refusé parce que l'autre appareil a écrit entre-temps (409/422) relance un cycle.
+   La clé d'accès reste sur l'appareil (localStorage) et n'est envoyée qu'à api.github.com. */
+const GH_DEFAULT_REPO='elone693-jpg/rotation-back-office-donnees',GH_PATH='donnees.json';
+const gh={repo:GH_DEFAULT_REPO,token:'',state:'off',msg:'',last:0,busy:false,again:false,timer:null};
+try{const c=JSON.parse(localStorage.getItem(LS+'-gh')||'null');if(c){gh.repo=c.repo||GH_DEFAULT_REPO;gh.token=c.token||''}}catch(e){}
+const ghOn=()=>!!gh.token;
+function ghSaveCfg(){try{localStorage.setItem(LS+'-gh',JSON.stringify({repo:gh.repo,token:gh.token}))}catch(e){}}
+const b64enc=str=>{const b=new TextEncoder().encode(str);let s='';for(let i=0;i<b.length;i+=0x8000)s+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));return btoa(s)};
+const b64dec=b64=>{const s=atob(String(b64).replace(/\s/g,''));const b=new Uint8Array(s.length);for(let i=0;i<s.length;i++)b[i]=s.charCodeAt(i);return new TextDecoder().decode(b)};
+// comparaison indépendante de l'ordre des clés (sinon deux appareils se renverraient le fichier sans fin)
+const stable=v=>Array.isArray(v)?'['+v.map(stable).join(',')+']':v&&typeof v==='object'?'{'+Object.keys(v).sort().filter(k=>v[k]!==undefined).map(k=>JSON.stringify(k)+':'+stable(v[k])).join(',')+'}':JSON.stringify(v);
+const canon=p=>{const tomb={};for(const [c,o] of Object.entries(p.tomb||{}))if(o&&Object.keys(o).length)tomb[c]=o;return stable({data:p.data,tomb})};
+async function ghFetch(method,body){
+  const r=await fetch(`https://api.github.com/repos/${gh.repo}/contents/${GH_PATH}`+(method==='GET'?`?t=${Date.now()}`:''),{method,cache:'no-store',
+    headers:{'Accept':'application/vnd.github+json','Authorization':'Bearer '+gh.token,'X-GitHub-Api-Version':'2022-11-28',...(body?{'Content-Type':'application/json'}:{})},
+    body:body?JSON.stringify(body):undefined});
+  return r;
+}
+function ghSetState(st,msg){gh.state=st;gh.msg=msg||'';if(typeof renderStatus==='function')renderStatus()}
+async function syncNow(reason){
+  if(!ghOn())return;
+  if(gh.busy){gh.again=true;return}
+  if(typeof navigator!=='undefined'&&navigator.onLine===false){ghSetState('offline');return}
+  gh.busy=true;ghSetState('busy');
+  try{
+    for(let essai=0;essai<4;essai++){
+      const r=await ghFetch('GET');
+      let sha=null,remote=null;
+      if(r.status===404){remote=null}
+      else if(r.status===401||r.status===403){ghSetState('auth','Clé refusée ou expirée : collez une nouvelle clé dans Synchroniser.');return}
+      else if(!r.ok){throw new Error('lecture '+r.status)}
+      else{const j=await r.json();sha=j.sha;remote=JSON.parse(b64dec(j.content))}
+      let n=0;if(remote)n=mergePayload(remote);
+      const mine=exportPayload();
+      const needPush=!remote||canon(mine)!==canon(remote);
+      if(n){localSave();render()}
+      if(!needPush){meta.dirty=false;meta.lastImport=Date.now();localSave();gh.last=Date.now();ghSetState('ok');return}
+      const w=await ghFetch('PUT',{message:`Synchro ${new Date().toLocaleString('fr-FR')}`,content:b64enc(JSON.stringify(mine,null,1)),...(sha?{sha}:{})});
+      if(w.ok){meta.dirty=false;meta.lastExport=meta.lastImport=Date.now();localSave();gh.last=Date.now();ghSetState('ok');return}
+      if(w.status===409||w.status===422){continue}   // l'autre appareil vient d'écrire : on relit et on refusionne
+      if(w.status===401||w.status===403){ghSetState('auth','La clé ne permet pas d\'écrire : vérifiez l\'autorisation « Contents : Read and write ».');return}
+      throw new Error('écriture '+w.status);
+    }
+    ghSetState('err','Conflit répété avec l\'autre appareil : nouvelle tentative dans une minute.');
+  }catch(e){ghSetState(typeof navigator!=='undefined'&&navigator.onLine===false?'offline':'err','Synchro impossible pour le moment ('+(e&&e.message||'réseau')+'). Nouvel essai automatique.')}
+  finally{gh.busy=false;if(gh.again){gh.again=false;setTimeout(()=>syncNow('relance'),300)}}
+}
+function scheduleSync(){if(!ghOn())return;clearTimeout(gh.timer);gh.timer=setTimeout(()=>syncNow('modif'),2000)}
+function ghStart(){
+  if(typeof document==='undefined'||!document.addEventListener)return;
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')syncNow('retour')});
+  if(typeof window!=='undefined'){window.addEventListener('online',()=>syncNow('réseau'));window.addEventListener('focus',()=>syncNow('focus'))}
+  setInterval(()=>{if(document.visibilityState==='visible')syncNow('minute')},60000);
+  syncNow('ouverture');
+}
+async function ghConnect(repo,token){
+  gh.repo=(repo||GH_DEFAULT_REPO).trim().replace(/^https:\/\/github\.com\//,'').replace(/\/$/,'');gh.token=token.trim();
+  const r=await ghFetch('GET').catch(()=>null);
+  if(!r||r.status===401||r.status===403){gh.token='';return 'Clé refusée : vérifiez-la et ses autorisations sur le dépôt.'}
+  if(r.status===404){const t=await fetch(`https://api.github.com/repos/${gh.repo}`,{headers:{'Authorization':'Bearer '+gh.token}}).catch(()=>null);if(!t||!t.ok){gh.token='';return 'Dépôt introuvable avec cette clé : vérifiez le nom du dépôt et l\'accès accordé à la clé.'}}
+  ghSaveCfg();syncNow('connexion');return '';
+}
+function ghDisconnect(){gh.token='';ghSaveCfg();ghSetState('off')}
+
 async function put(col,id,data){
   const v={...data,_t:Date.now()};
   state[col]={...state[col],[id]:v};
@@ -644,16 +716,39 @@ async function exportFile(){
 const ago=t=>{if(!t)return 'jamais';const m=Math.round((Date.now()-t)/60000);if(m<1)return "à l'instant";if(m<60)return `il y a ${m} min`;const h=Math.round(m/60);if(h<24)return `il y a ${h} h`;const j=Math.round(h/24);return `il y a ${j} jour${j>1?'s':''}`};
 function openSync(){
   const ios=/iPhone|iPad|iPod/.test(navigator.userAgent);
+  const auto=ghOn()?`<div class="sync-on"><span class="pill ok">Synchro automatique activée</span><span class="muted" style="font-size:.84rem">Dépôt privé <b>${esc(gh.repo)}</b> · dernière synchro ${ago(gh.last||Math.max(meta.lastExport,meta.lastImport))}</span>${gh.msg?`<p class="impact">${esc(gh.msg)}</p>`:''}
+      <div class="row"><button class="btn primary" data-act="syncnow">Synchroniser maintenant</button><button class="btn danger" data-act="ghoff">Désactiver sur cet appareil</button></div></div>`
+    :`<form id="ghform" class="sync-form">
+      <p class="muted" style="font-size:.86rem">Les modifications passent toutes seules d'un appareil à l'autre, via ton dépôt GitHub privé. À faire une fois sur chaque appareil : coller la clé d'accès.</p>
+      <label class="f"><span>Dépôt des données</span><input type="text" id="gh-repo" value="${esc(gh.repo)}" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+      <label class="f"><span>Clé d'accès GitHub</span><input type="password" id="gh-token" placeholder="github_pat_…" autocomplete="off" autocapitalize="off" spellcheck="false" required></label>
+      <div id="gh-err" style="color:var(--crit);font-size:.85rem"></div>
+      <div><button class="btn primary" type="submit">Activer la synchro automatique</button></div>
+      <details class="muted" style="font-size:.82rem"><summary style="cursor:pointer">Comment créer la clé ?</summary>
+        <ol style="padding-left:18px;margin:6px 0 0;display:grid;gap:4px">
+          <li>github.com › photo de profil › <b>Settings</b> › <b>Developer settings</b> › <b>Personal access tokens</b> › <b>Fine-grained tokens</b> › <b>Generate new token</b>.</li>
+          <li>Nom : « Back office », expiration : la plus longue proposée.</li>
+          <li>Repository access : <b>Only select repositories</b> › <b>rotation-back-office-donnees</b>.</li>
+          <li>Permissions › Repository permissions › <b>Contents</b> : <b>Read and write</b>.</li>
+          <li><b>Generate token</b>, copiez la clé et collez-la ici (même clé sur l'iPhone et le Mac).</li>
+        </ol></details>
+    </form>`;
   $('#layer').innerHTML=`<div class="overlay" data-act="close"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="sy">
-    <div><div class="eyebrow">iCloud Drive</div><h3 id="sy">Synchroniser l'iPhone et le Mac</h3>
-      <p class="muted" style="font-size:.86rem">Les données sont gardées sur cet appareil. Pour retrouver les mêmes sur l'autre, on passe par un fichier dans iCloud Drive, dossier <b>Rotation back office</b>.</p></div>
-    <div class="sync-step"><span class="n">1</span><div><b>Récupérer</b> les modifications faites sur l'autre appareil<br><small class="muted">Dernière récupération : ${ago(meta.lastImport)}</small></div>
-      <label class="btn"><input type="file" id="sync-in" accept=".json,application/json" hidden>Choisir le fichier</label></div>
-    <div class="sync-step"><span class="n">2</span><div><b>Enregistrer</b> les données de cet appareil<br><small class="muted">Dernier enregistrement : ${ago(meta.lastExport)}${meta.dirty?' · <b class="hl">modifications non enregistrées</b>':''}</small></div>
-      <button class="btn primary" data-act="export">Enregistrer</button></div>
-    <p class="muted" style="font-size:.8rem">${ios?'Après « Enregistrer », choisissez <b>Enregistrer dans Fichiers</b> › iCloud Drive › Rotation back office, puis <b>Remplacer</b>.':'Sur Mac, enregistrez le fichier dans iCloud Drive › Rotation back office (remplacez l\'ancien). Dans Safari, vous pouvez régler le dossier de téléchargement sur ce dossier.'} Commencez toujours par récupérer, puis enregistrez : les deux appareils gardent ainsi la version la plus récente de chaque élément.</p>
+    <div><div class="eyebrow">iPhone ⇄ Mac</div><h3 id="sy">Synchronisation</h3></div>
+    ${auto}
+    <details class="icloud"><summary>Copie de sauvegarde dans iCloud Drive (manuel)</summary>
+      <div style="display:grid;gap:10px;margin-top:10px">
+      <div class="sync-step"><span class="n">1</span><div><b>Récupérer</b> un fichier<br><small class="muted">Dernière récupération : ${ago(meta.lastImport)}</small></div>
+        <label class="btn"><input type="file" id="sync-in" accept=".json,application/json" hidden>Choisir le fichier</label></div>
+      <div class="sync-step"><span class="n">2</span><div><b>Enregistrer</b> une copie<br><small class="muted">Dernier enregistrement : ${ago(meta.lastExport)}</small></div>
+        <button class="btn" data-act="export">Enregistrer</button></div>
+      <p class="muted" style="font-size:.8rem">${ios?'Après « Enregistrer », choisissez <b>Enregistrer dans Fichiers</b> › iCloud Drive › Rotation back office, puis <b>Remplacer</b>.':'Enregistrez le fichier dans iCloud Drive › Rotation back office.'}</p></div></details>
     <div><button class="btn" data-act="close">Fermer</button></div></div></div>`;
   $('#sync-in').addEventListener('change',e=>{const f=e.target.files&&e.target.files[0];if(f)importFile(f)});
+  const f=$('#ghform');if(f)f.addEventListener('submit',async e=>{e.preventDefault();const btn=f.querySelector('button[type=submit]');btn.disabled=true;btn.textContent='Vérification…';
+    const err=await ghConnect($('#gh-repo').value,$('#gh-token').value);
+    if(err){$('#gh-err').textContent=err;btn.disabled=false;btn.textContent='Activer la synchro automatique';return}
+    closeModal();toast('Synchro automatique activée sur cet appareil.')});
 }
 
 /* ---------- accès aux données ---------- */
@@ -1006,17 +1101,22 @@ function renderHero(){
 }
 function renderStatus(){
   const s=$('#status');if(mode==='init')return;
-  s.className='status '+(meta.dirty?'local':'ok');
-  s.innerHTML=`<i></i><span>${meta.dirty?'Modifications à enregistrer dans iCloud':'Synchronisé · '+ago(Math.max(meta.lastExport,meta.lastImport))}</span><button class="sync-btn" data-act="sync">Synchroniser</button>`;
-  const late=meta.dirty&&Date.now()-(meta.lastExport||0)>864e5&&!isEmpty();
-  $('#banner').innerHTML=late?'<div class="banner">Des modifications ne sont pas encore enregistrées dans iCloud Drive : pensez à <button class="linkbtn" data-act="sync">synchroniser</button> pour les retrouver sur votre autre appareil.</div>':'';
+  let cls='ok',txt;
+  if(ghOn()){
+    const L={busy:'Synchronisation…',ok:'Synchronisé · '+ago(gh.last),offline:'Hors ligne · envoi au retour du réseau',auth:'Clé à renouveler',err:'Synchro en attente · nouvel essai',off:'Synchronisé'};
+    txt=L[gh.state]||L.ok;cls=gh.state==='auth'||gh.state==='err'?'local':gh.state==='offline'?'local':'ok';
+  } else {cls=meta.dirty?'local':'ok';txt=meta.dirty?'Synchro automatique non activée':'Sur cet appareil · '+ago(Math.max(meta.lastExport,meta.lastImport))}
+  s.className='status '+cls;
+  s.innerHTML=`<i></i><span>${txt}</span><button class="sync-btn" data-act="sync">${ghOn()?'Synchro':'Activer la synchro'}</button>`;
+  const warn=ghOn()?(gh.state==='auth'?gh.msg:''):(meta.dirty&&Date.now()-(meta.lastExport||0)>864e5&&!isEmpty()?'Les modifications de cet appareil ne sont pas encore partagées.':'');
+  $('#banner').innerHTML=warn?`<div class="banner">${esc(warn)} <button class="linkbtn" data-act="sync">${ghOn()?'Mettre à jour la clé':'Activer la synchro automatique'}</button></div>`:'';
 }
 
 function isEmpty(){return !Object.keys(state.equipe).length&&!Object.keys(state.taches).length}
 function emptyState(){
   if(mode==='init')return `<div class="empty"><p class="muted">Chargement…</p></div>`;
   return `<div class="empty"><h2>Bienvenue</h2><p class="muted">Si vous utilisez déjà l'application sur un autre appareil, récupérez vos données depuis iCloud Drive. Sinon, créez l'équipe type (4 collaborateurs, 1 poste à pourvoir et les tâches du back office) puis renommez chacun dans l'onglet Équipe.</p>
-    <div class="row"><button class="btn primary" data-act="sync">Récupérer depuis iCloud</button><button class="btn" data-act="seed">Créer l'équipe type</button></div></div>`;
+    <div class="row"><button class="btn primary" data-act="sync">Activer la synchro / récupérer mes données</button><button class="btn" data-act="seed">Créer l'équipe type</button></div></div>`;
 }
 
 function weekDays(m){return [0,1,2,3,4].map(i=>addDays(m,i))}
@@ -1454,6 +1554,8 @@ document.addEventListener('click',e=>{
     case 'sync':openSync();break;
     case 'tk':{const d=b.dataset.d,t=b.dataset.t;tick(d,t,!journal(d).done?.[t]);break}
     case 'export':exportFile();break;
+    case 'syncnow':syncNow('bouton').then(()=>{closeModal();toast(gh.state==='ok'?'Synchronisé.':gh.msg||'Synchro en attente.')});break;
+    case 'ghoff':ghDisconnect();closeModal();toast('Synchro automatique désactivée sur cet appareil.');break;
     case 'oup':case 'odown':{const F=orderFrom();const C=byId();
       const base=(compute(F,F)[F]?.queue||[]).filter(id=>C[id]&&C[id].actif&&(!C[id].fin||C[id].fin>=F));
       const dr=ui.orderDraft&&ui.orderDraft.from===F?ui.orderDraft:{from:F,ids:base};const ids=[...dr.ids],i=+b.dataset.i,j=a==='oup'?i-1:i+1;
@@ -1542,6 +1644,7 @@ let tt;function toast(m){clearTimeout(tt);let t=$('.toast');if(!t){t=document.cr
 
 /* ---------- démarrage ---------- */
 localLoad();mode='local';render();
+ghStart();
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 if('serviceWorker' in navigator&&location.protocol!=='file:'){
   navigator.serviceWorker.register('sw.js').then(reg=>{
