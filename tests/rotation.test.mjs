@@ -178,5 +178,16 @@ test('compteurs : saisie possible sur tous les jours ouvrés, y compris à venir
   assert.equal(champs.length, 15);
   assert.ok(champs.every(c => !/\sdisabled/.test(c)), 'aucune case bloquée');
 });
+test('planning : case fait / pas fait par tâche, liée à la checklist', () => {
+  ui.week = '2026-09-28'; ui.view = 'poste';
+  let html = vPlanning();
+  const cases = html.match(/data-act="tk"[^>]*data-d="2026-09-28"/g) || [];
+  assert.equal(cases.length, 4, 'une case par tâche');
+  assert.match(html, /class="tk missed"/, 'jour passé non coché = non fait');
+  tick('2026-09-28', 't_mails', true);
+  html = vPlanning();
+  assert.match(html, /class="tk done"[^>]*data-d="2026-09-28" data-t="t_mails"/);
+  assert.equal(progress('2026-09-28').n, 1, 'même donnée que la checklist');
+});
 for (const [name, fn] of pending) { reset(); await fn(); n++; console.log('ok -', name); }
 console.log(`\n${n} tests réussis`);
