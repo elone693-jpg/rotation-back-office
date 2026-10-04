@@ -157,7 +157,7 @@ table.people th:first-child{width:190px}
 .row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
 label.f{display:grid;gap:4px;font-size:.8rem;color:var(--muted);font-weight:500;min-width:0}
 label.f.grow{flex:1 1 180px}
-input[type=text],input[type=date],input[type=number],select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:7px 9px;color:var(--ink);font-size:.92rem;min-width:0;width:100%}
+input[type=text],input[type=password],input[type=date],input[type=number],select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:7px 9px;color:var(--ink);font-size:.92rem;min-width:0;width:100%}
 input[type=number]{width:5.5em}
 .check{display:inline-flex;align-items:center;gap:6px;font-size:.86rem;cursor:pointer}
 .list{display:grid;gap:10px}
@@ -290,7 +290,7 @@ tr.slot th{background:transparent;color:var(--accent);padding-top:14px}
 .chip.big{box-shadow:0 0 0 1px color-mix(in oklab,var(--h) 30%,transparent)}
 .bo{background:linear-gradient(120deg,var(--brand),var(--accent))}
 .avatar{box-shadow:0 0 0 3px color-mix(in oklab,var(--h) 22%,transparent)}
-input[type=text],input[type=date],input[type=number],select,textarea{border-radius:10px;padding:9px 11px;background:var(--surface)}
+input[type=text],input[type=password],input[type=date],input[type=number],select,textarea{border-radius:10px;padding:9px 11px;background:var(--surface)}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in oklab,var(--accent) 22%,transparent)}
 .modal{border-radius:20px;box-shadow:0 30px 60px -20px rgb(0 0 0 / .45);padding:22px}
 .opt{border-radius:12px;transition:border-color .12s,background .12s}
@@ -438,7 +438,7 @@ nav.tabs button{flex:none}
   .modal{max-height:94vh}
 }
 @media (pointer:coarse){
-  input[type=text],input[type=date],input[type=number],select,textarea{font-size:16px}
+  input[type=text],input[type=password],input[type=date],input[type=number],select,textarea{font-size:16px}
   .icon-btn{width:44px;height:44px}
   .btn{min-height:44px}
   .seg button,nav.tabs button{min-height:40px}

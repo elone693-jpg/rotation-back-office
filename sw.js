@@ -2,7 +2,7 @@
 // Page : réseau d'abord (pour recevoir les mises à jour), cache en secours.
 // Icônes, polices et autres fichiers : cache d'abord.
 // Changer VERSION à chaque mise en ligne pour renouveler le cache.
-const VERSION = 'rbo-2026-10-04-3';
+const VERSION = 'rbo-2026-10-04-4';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', e => {
