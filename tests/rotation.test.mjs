@@ -223,5 +223,31 @@ test('synchro automatique GitHub : fusion, pas d\'envoi inutile, conflit, clé r
   statut = 401; await E2.syncNow('test'); assert.equal(E2.gh.state, 'auth');
   E2.gh.token = ''; delete globalThis.fetch;
 });
+const lundis = (from, to) => { const p = compute(from, to); return Object.keys(p).filter(d => !p[d].ferie && new Date(d + 'T12:00').getDay() === 1).map(d => ({ d, qui: dutyIds(p[d]) })); };
+const vendrediPuisLundi = (from, to) => { const p = compute(from, to); return Object.keys(p).filter(d => new Date(d + 'T12:00').getDay() === 1 && !p[d].ferie).map(d => { const v = new Date(d + 'T12:00'); v.setDate(v.getDate() - 3); const vi = v.toISOString().slice(0, 10); return { d, lundi: dutyIds(p[d]), vendredi: p[vi] && !p[vi].ferie ? dutyIds(p[vi]) : [] }; }); };
+test('règle : pas de back office deux lundis de suite (équipe de 5)', () => {
+  state.equipe.c5 = { ...state.equipe.c5, actif: true };
+  const L = lundis('2026-10-05', '2026-12-18');
+  assert.ok(L.length >= 10);
+  for (let i = 1; i < L.length; i++) assert.ok(!L[i].qui.some(id => L[i - 1].qui.includes(id)), `${L[i].d} : même personne que le lundi précédent`);
+});
+test('règle : la personne du vendredi n\'est pas de back office le lundi suivant (même sans « pas deux de suite »)', () => {
+  state.reglages.general.pasDeSuite = false;
+  for (const equipe5 of [false, true]) {
+    if (equipe5) state.equipe.c5 = { ...state.equipe.c5, actif: true };
+    for (const x of vendrediPuisLundi('2026-10-05', '2026-12-18')) assert.ok(!x.lundi.some(id => x.vendredi.includes(id)), `${x.d} : même personne que le vendredi`);
+  }
+});
+test('règles du lundi : désactivables dans les réglages', () => {
+  state.equipe.c5 = { ...state.equipe.c5, actif: true };
+  state.reglages.general.lundiLundi = false; state.reglages.general.vendrediLundi = false; state.reglages.general.pasDeSuite = false;
+  const L = lundis('2026-10-05', '2026-11-30');
+  assert.ok(L.some((x, i) => i > 0 && x.qui.some(id => L[i - 1].qui.includes(id))), 'sans la règle, 5 personnes = même lundi chaque semaine');
+});
+test('règles du lundi : souples, la personne passe quand même si elle est seule disponible', () => {
+  for (const c of ['c2', 'c3', 'c4']) state.absences['a' + c] = { collab: c, du: '2026-10-12', au: '2026-10-12', type: 'conge', portion: 'journee' };
+  const p = compute('2026-10-05', '2026-10-12');
+  assert.deepEqual(dutyIds(p['2026-10-12']), ['c1'], 'c1 seul présent');
+});
 for (const [name, fn] of pending) { reset(); await fn(); n++; console.log('ok -', name); }
 console.log(`\n${n} tests réussis`);

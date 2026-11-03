@@ -48,7 +48,7 @@ Au premier lancement : *Activer la synchro*, puis coller la clé d'accès GitHub
   - *échange* : la personne prévue reprend le prochain tour du remplaçant ;
   - *décalage* : la personne choisie passe ce jour-là, et les suivants glissent d'un jour.
 - **Ordre de passage** : il peut être redéfini à partir d'une date. Les jours passés ne changent pas.
-- **Règles souples** : jours à éviter par personne, pas deux tours de suite. La personne écartée garde sa place et passe le jour suivant, sauf si personne d'autre n'est disponible.
+- **Règles souples** : jours à éviter par personne, pas deux tours de suite, pas deux lundis de suite pour la même personne, et pas le lundi pour la personne du vendredi précédent. La personne écartée garde sa place et passe le jour suivant, sauf si personne d'autre n'est disponible.
 - **Doublure** : un nouveau collaborateur accompagne son tuteur jusqu'à une date, puis entre dans la rotation.
 - **Jours à risque** : effectif présent (1 par journée, 0,5 par demi-journée) sous le seuil, ou back office non couvert, sur 3 mois.
 
@@ -61,7 +61,7 @@ Au premier lancement : *Activer la synchro*, puis coller la clé d'accès GitHub
 | `absences/<id>` | `collab`, `du`, `au` (vide = sans fin), `type`, `portion` (`journee`, `matin` ou `apresmidi`), `note`, `rec` (récurrence, optionnel) |
 | `affectations/<lundi>` | `cells[date] = {ids, mode: 'echange' ou 'decale'}` |
 | `ordres/<date>` | `{depuis, ordre: [ids]}` |
-| `reglages/general` | `debut`, `feries`, `parJour`, `seuil` (effectif minimum), `pasDeSuite` |
+| `reglages/general` | `debut`, `feries`, `parJour`, `seuil` (effectif minimum), `pasDeSuite`, `lundiLundi`, `vendrediLundi` (règles activées par défaut) |
 | `journal/<date>` | checklist du jour : `done[tacheId] = {at: 'HH:MM', by: userId}`, `vol[tacheId]` (volume traité), `cpt` `{md, mf}` (mails en début / fin de journée), `note`. Le compteur App. (appels émis) du Planning écrit dans `vol` de la tâche d'appels |
 
 Récurrence `rec` :

@@ -798,7 +798,7 @@ function compute(from,to){
   const team=collabs(),ids=new Set(team.map(c=>c.id)),C=Object.fromEntries(team.map(c=>[c.id,c]));
   let queue=team.map(c=>c.id);
   const rebases=Object.entries(state.ordres||{}).map(([k,v])=>({d:v.depuis||k,ordre:(v.ordre||[]).filter(id=>ids.has(id))})).sort((a,b)=>a.d.localeCompare(b.d));
-  let ri=0,lastDoers=[];const sub={},out={};
+  let ri=0,lastDoers=[];const sub={},out={},doersBy={};
   const toEnd=id=>{queue=queue.filter(x=>x!==id);queue.push(id)};
   for(;d<=to;d=addDays(d,1)){
     let rebased=false;
@@ -815,7 +815,10 @@ function compute(from,to){
         if(!m||!a)day.present.push(c.id)}
       const full=id=>C[id]&&inRotation(C[id],d)&&!enDoublure(C[id],d)&&!absM[id]&&!absA[id];
       // règles souples : jour à éviter, pas deux tours de suite. La personne écartée garde sa place et passe le jour suivant.
-      const avoid=id=>(C[id].eviter||[]).includes(weekday(d))||(R.pasDeSuite!==false&&lastDoers.includes(id));
+      const wd=weekday(d);
+      // le lundi : pas la personne du lundi précédent, ni celle du vendredi qui précède
+      const regleLundi=id=>wd===0&&((R.lundiLundi!==false&&(doersBy[addDays(d,-7)]||[]).includes(id))||(R.vendrediLundi!==false&&(doersBy[addDays(d,-3)]||[]).includes(id)));
+      const avoid=id=>(C[id].eviter||[]).includes(wd)||(R.pasDeSuite!==false&&lastDoers.includes(id))||regleLundi(id);
       const holders=()=>{const el=queue.filter(full),ok=el.filter(id=>!avoid(id));const pick=[...ok,...el.filter(avoid)].slice(0,need);day.evite=el.filter(id=>avoid(id)&&!pick.includes(id)&&queue.indexOf(id)<queue.indexOf(pick[pick.length-1]??id));return pick};
       const ov=cellOf(d);
       if(ov){
@@ -842,7 +845,7 @@ function compute(from,to){
       day.short.matin=Math.max(0,need-day.matin.length);day.short.apresmidi=Math.max(0,need-day.apresmidi.length);
       const doers=dutyIds(day);
       day.doublure=team.filter(c=>enDoublure(c,d)&&doers.includes(c.doublure.tuteur)&&!absM[c.id]&&!absA[c.id]).map(c=>c.id);
-      lastDoers=doers;
+      lastDoers=doers;doersBy[d]=doers;
     } else lastDoers=[];
     day.rebased=rebased;
     if(d>=from)out[d]=day;
@@ -1192,7 +1195,7 @@ function collabCards(days,plan,C){
 function dutyButton(d,P,C){
   const ids=dutyIds(P),sh=P.short.matin+P.short.apresmidi;
   const ch=ids.map(id=>{const half=!P.matin.includes(id)?' (ap.-midi)':!P.apresmidi.includes(id)?' (matin)':'';return chip(C[id],'big')+(half?`<span class="muted" style="font-size:.74rem">${half.trim()}</span>`:'')}).join('');
-  return `<button class="cell duty-cell ${sh?'short':''}" data-act="cell" data-d="${d}" ${canWrite?'':'disabled'} aria-label="Back office du ${DNL[weekday(d)]} ${short(d)}">${ch||'<span class="muted">Personne</span>'}${sh?`<span class="flag crit">${P.short.matin&&P.short.apresmidi?'Non couvert':P.short.matin?'Matin non couvert':'Ap.-midi non couvert'}</span>`:''}${P.doublure.map(id=>`<span class="flag man">+ ${esc(C[id]?.nom)} en doublure</span>`).join('')}${P.evite.length?`<span class="flag-txt" title="Écarté ce jour-là (jour à éviter ou tour la veille)">${esc(P.evite.map(id=>initials(C[id]?.nom)).join(', '))} décalé</span>`:''}${P.relais?'<span class="flag warn">Relais</span>':''}${d<=TODAY&&ids.length?(()=>{const g=progress(d);return g.total?`<span class="flag ${g.n===g.total?'ok':d<TODAY?'crit':'warn'}">✓ ${g.n}/${g.total}</span>`:''})():''}${P.manual==='echange'||Object.keys(P.subFor).length?'<span class="flag man">Échange</span>':P.manual?'<span class="flag man">Avancé</span>':''}</button>`;
+  return `<button class="cell duty-cell ${sh?'short':''}" data-act="cell" data-d="${d}" ${canWrite?'':'disabled'} aria-label="Back office du ${DNL[weekday(d)]} ${short(d)}">${ch||'<span class="muted">Personne</span>'}${sh?`<span class="flag crit">${P.short.matin&&P.short.apresmidi?'Non couvert':P.short.matin?'Matin non couvert':'Ap.-midi non couvert'}</span>`:''}${P.doublure.map(id=>`<span class="flag man">+ ${esc(C[id]?.nom)} en doublure</span>`).join('')}${P.evite.length?`<span class="flag-txt" title="Écarté ce jour-là par une règle de rotation (jour à éviter, tour la veille, lundi précédent ou vendredi précédent)">${esc(P.evite.map(id=>initials(C[id]?.nom)).join(', '))} décalé</span>`:''}${P.relais?'<span class="flag warn">Relais</span>':''}${d<=TODAY&&ids.length?(()=>{const g=progress(d);return g.total?`<span class="flag ${g.n===g.total?'ok':d<TODAY?'crit':'warn'}">✓ ${g.n}/${g.total}</span>`:''})():''}${P.manual==='echange'||Object.keys(P.subFor).length?'<span class="flag man">Échange</span>':P.manual?'<span class="flag man">Avancé</span>':''}</button>`;
 }
 function gridJour(days,plan,C,ts){
   let body=`<tr><th class="task">De back office<span class="tmeta">Assure toutes les tâches de la journée</span></th>`;
@@ -1430,6 +1433,8 @@ function vReglages(){
       <label class="check" style="padding-bottom:8px"><input type="checkbox" id="r-feries" data-rf="feries" ${R.feries!==false?'checked':''} ${dis}> Jours fériés français non travaillés</label></div>
       <div class="row"><label class="f"><span>Effectif minimum de l'agence (alerte)</span><input type="number" id="r-seuil" data-rf="seuil" min="1" max="20" value="${Math.max(1,+R.seuil||2)}" ${dis}></label>
       <label class="check" style="padding-bottom:8px"><input type="checkbox" id="r-suite" data-rf="pasDeSuite" ${R.pasDeSuite!==false?'checked':''} ${dis}> Éviter deux tours de back office de suite</label></div>
+      <div class="row"><label class="check"><input type="checkbox" id="r-lundi" data-rf="lundiLundi" ${R.lundiLundi!==false?'checked':''} ${dis}> La personne du lundi n'est pas de back office le lundi suivant</label>
+      <label class="check"><input type="checkbox" id="r-vendredi" data-rf="vendrediLundi" ${R.vendrediLundi!==false?'checked':''} ${dis}> La personne du vendredi n'est pas de back office le lundi suivant</label></div>
       <p class="muted" style="font-size:.84rem">La rotation est calculée jour par jour à partir de cette date : chaque jour, on retient la personne présente toute la journée qui a été de back office il y a le plus longtemps. Changer la date redistribue tout le planning.</p>
       <div><button class="btn danger" data-act="clearov" ${dis}>Effacer tous les choix manuels</button></div>
     </div>
