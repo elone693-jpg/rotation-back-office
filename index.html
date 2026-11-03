@@ -490,6 +490,38 @@ nav.tabs button{flex:none}
 .sync-form{display:grid;gap:10px}
 details.icloud{border-top:1px solid var(--line);padding-top:10px}
 details.icloud summary{cursor:pointer;font-weight:600;font-size:.88rem;color:var(--muted)}
+#print-root{display:none}
+@page{size:A4 landscape;margin:10mm}
+@media print{
+  :root{padding:0!important;color-scheme:light}
+  html,body{background:#fff!important;color:#0d2a33!important;padding:0!important;margin:0!important}
+  body>*:not(#print-root){display:none!important}
+  #print-root{display:block!important}
+  .pm{font:9.5pt/1.3 "Plus Jakarta Sans",system-ui,sans-serif;color:#0d2a33;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .pm-h{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2pt solid #009cac;padding:8pt 0 4pt;margin-bottom:4pt;position:relative}
+  .pm-h::before{content:"";position:absolute;left:0;top:0;width:40pt;height:3pt;background:#ed1c24}
+  .pm-eyebrow{font-size:7pt;text-transform:uppercase;letter-spacing:.12em;color:#5b7179;font-weight:700}
+  .pm h1{font-size:15pt;margin:0;font-weight:800;letter-spacing:-.01em}
+  .pm-meta{font-size:7.5pt;color:#5b7179}
+  .pm-prog{font-size:7.5pt;color:#5b7179;margin:0 0 5pt}
+  .pm-grid{width:100%;border-collapse:collapse;table-layout:fixed;break-inside:avoid}
+  .pm-grid th{background:#0b4a5c;color:#fff;font-size:8pt;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:3pt 5pt;text-align:left}
+  .pm-grid td{border:.6pt solid #c9d8dc;vertical-align:top;padding:3pt 5pt;height:58pt;overflow:hidden}
+  .pm-d{display:block;font-weight:800;font-size:9pt;color:#0b4a5c;margin-bottom:2pt}
+  .pm-who{display:block;font-weight:700;font-size:10pt;padding:2pt 5pt;border-radius:4pt;margin-bottom:2pt;background:color-mix(in srgb,var(--h) 16%,#fff);border-left:3pt solid var(--h)}
+  .pm-none{display:block;font-weight:700;color:#c8102e}
+  .pm-note{font-size:7pt;color:#1f5fa8;font-weight:600}
+  .pm-abs{font-size:7pt;color:#5b7179;margin-top:1pt}
+  .pm-out{background:#f4f7f8}
+  .pm-out .pm-d{color:#b5c4c8}
+  .pm-fer{background:repeating-linear-gradient(135deg,#f4f7f8 0 4pt,#e6eef0 4pt 6pt)}
+  .pm-ferl{font-size:7.5pt;color:#9a5a00;font-weight:700}
+  .pm-today .pm-d{color:#ed1c24}
+  .pm-sum{border-collapse:collapse;margin-top:6pt;font-size:8pt;break-inside:avoid}
+  .pm-sum th,.pm-sum td{border:.6pt solid #c9d8dc;padding:2pt 8pt;text-align:left}
+  .pm-sum th{background:#eef4f5;font-weight:700}
+  .pm-dot{display:inline-block;width:7pt;height:7pt;border-radius:50%;background:var(--h);margin-right:5pt;vertical-align:middle}
+}
 </style>
 </head>
 <body>
@@ -507,6 +539,7 @@ details.icloud summary{cursor:pointer;font-weight:600;font-size:.88rem;color:var
   <main id="view"></main>
 </div>
 <div id="layer"></div>
+<div id="print-root" aria-hidden="true"></div>
 
 <script>
 (function(){
@@ -1143,7 +1176,7 @@ function vPlanning(){
       <button class="icon-btn" data-act="wk" data-n="7" aria-label="Semaine suivante">›</button>
       ${m!==CUR()?'<button class="btn ghost" data-act="wk0">Cette semaine</button>':''}</div>
     <div class="row"><div class="seg" role="group" aria-label="Affichage"><button data-act="view" data-v="poste" aria-pressed="${ui.view==='poste'}">Par jour</button><button data-act="view" data-v="collab" aria-pressed="${ui.view==='collab'}">Par collaborateur</button></div>
-    <button class="btn" data-act="copy" aria-label="Copier la semaine">${narrow()?'Copier':'Copier la semaine'}</button></div></div>
+    <button class="btn" data-act="printm" aria-label="Planning du mois en PDF">${narrow()?'PDF':'PDF du mois'}</button><button class="btn" data-act="copy" aria-label="Copier la semaine">${narrow()?'Copier':'Copier la semaine'}</button></div></div>
     <div class="summary">${pills}</div>`;
   const todayCard=weekday(TODAY)<5?checklist(TODAY):'';
   return head+(todayCard?`<div style="margin-top:14px">${todayCard}</div>`:'')+(narrow()?(ui.view==='collab'?collabCards(days,plan,C):dayCards(days,plan,C,ts)):(ui.view==='collab'?gridCollab(days,plan,C):gridJour(days,plan,C,ts)+cptLegend()))+orderPanel()+
@@ -1522,6 +1555,60 @@ function setOverride(d,ids,mode){
   toast(ids===null?'Jour rendu à la rotation automatique.':mode==='decale'?'Tour avancé, la suite est décalée.':'Tours échangés.');
 }
 
+/* ---------- planning mensuel imprimable (PDF via l'impression du système) ---------- */
+const MOISL=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+function monthPrintHtml(ym){
+  const [y,m]=ym.split('-').map(Number),first=`${ym}-01`,last=iso(new Date(y,m,0));
+  const start=monday(first),end=addDays(monday(last),4);
+  const plan=compute(start,end),C=byId(),ts=taches();
+  const nm=id=>esc(C[id]?.nom||'?');
+  const weeks=[];for(let w=start;w<=end;w=addDays(w,7))weeks.push([0,1,2,3,4].map(i=>addDays(w,i)));
+  const cnt={},absJ={};
+  const cell=d=>{
+    const P=plan[d],inM=d.slice(0,7)===ym;
+    if(!inM)return `<td class="pm-out"><span class="pm-d">${+d.slice(8)}</span></td>`;
+    if(P.ferie)return `<td class="pm-fer"><span class="pm-d">${+d.slice(8)}</span><span class="pm-ferl">Férié · ${esc(P.ferie)}</span></td>`;
+    const ids=dutyIds(P);
+    for(const id of ids)cnt[id]=(cnt[id]||0)+(P.matin.includes(id)&&P.apresmidi.includes(id)?1:.5);
+    for(const x of P.absents)absJ[x.id]=(absJ[x.id]||0)+(x.p==='journee'?1:.5);
+    const who=ids.length?ids.map(id=>{const half=!P.matin.includes(id)?' (ap.-midi)':!P.apresmidi.includes(id)?' (matin)':'';return `<span class="pm-who" style="--h:${hue(C[id])}">${nm(id)}${half}</span>`}).join(''):'<span class="pm-none">Non couvert</span>';
+    const notes=[];
+    if(P.doublure.length)notes.push('Doublure : '+P.doublure.map(nm).join(', '));
+    if(P.manual==='echange'||Object.keys(P.subFor||{}).length)notes.push('Échange');else if(P.manual)notes.push('Avancé');
+    const abs=P.absents.length?`<div class="pm-abs">Absents : ${P.absents.map(x=>`${nm(x.id)}${x.p!=='journee'?' ('+SLOTL[x.p].toLowerCase()+')':''} – ${ABS[x.a.type]||'absent'}`).join(' · ')}</div>`:'';
+    return `<td class="${d===TODAY?'pm-today':''}"><span class="pm-d">${+d.slice(8)}</span>${who}${notes.length?`<div class="pm-note">${notes.join(' · ')}</div>`:''}${abs}</td>`;
+  };
+  const body=weeks.map(w=>`<tr>${w.map(cell).join('')}</tr>`).join('');
+  const people=collabs().filter(c=>cnt[c.id]||absJ[c.id]);
+  const fmt=v=>String(v).replace('.',',');
+  const prog=SLOTS.map(sl=>{const l=slotTasks(ts,sl.id).map(t=>esc(t.nom));return l.length?`<b>${sl.label} :</b> ${l.join(', ')}`:''}).filter(Boolean).join(' &nbsp;·&nbsp; ');
+  return `<div class="pm">
+    <header class="pm-h"><div><div class="pm-eyebrow">Plan de travail de l'agence</div><h1>Planning back office · ${MOISL[m-1]} ${y}</h1></div><div class="pm-meta">Imprimé le ${longd(TODAY)} ${TODAY.slice(0,4)}</div></header>
+    <p class="pm-prog">Programme de la personne de back office : ${prog}</p>
+    <table class="pm-grid"><thead><tr>${DNL.map(j=>`<th>${j}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>
+    <table class="pm-sum"><thead><tr><th>Collaborateur</th><th>Jours de back office</th><th>Jours d'absence</th></tr></thead>
+      <tbody>${people.map(c=>`<tr><td><span class="pm-dot" style="--h:${hue(c)}"></span>${esc(c.nom)}</td><td>${fmt(cnt[c.id]||0)}</td><td>${fmt(absJ[c.id]||0)}</td></tr>`).join('')||'<tr><td colspan="3">Aucune donnée ce mois-ci.</td></tr>'}</tbody></table>
+  </div>`;
+}
+function openPrint(){
+  const cur=ui.week.slice(0,7),opts=[];
+  const [y,m]=cur.split('-').map(Number);
+  for(let k=-2;k<=3;k++){const d=new Date(y,m-1+k,1);const v=`${d.getFullYear()}-${pad(d.getMonth()+1)}`;opts.push(`<option value="${v}" ${v===cur?'selected':''}>${MOISL[d.getMonth()]} ${d.getFullYear()}</option>`)}
+  const ios=/iPhone|iPad|iPod/.test(navigator.userAgent);
+  $('#layer').innerHTML=`<div class="overlay" data-act="close"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="pt">
+    <div><div class="eyebrow">PDF</div><h3 id="pt">Planning du mois</h3>
+    <p class="muted" style="font-size:.86rem">Une page A4 en paysage, avec une ligne par semaine (personne de back office, absents, jours fériés), puis le total du mois pour chacun.</p></div>
+    <label class="f"><span>Mois</span><select id="pm-mois">${opts.join('')}</select></label>
+    <p class="muted" style="font-size:.8rem">${ios?'Dans la fenêtre d\'impression, touchez <b>Partager</b> (en haut) puis <b>Enregistrer dans Fichiers</b> pour obtenir le PDF.':'Dans la fenêtre d\'impression, choisissez <b>PDF › Enregistrer au format PDF</b> (en bas à gauche).'}</p>
+    <div class="row"><button class="btn" data-act="close">Annuler</button><button class="btn primary" data-act="doprint">Imprimer / PDF</button></div></div></div>`;
+}
+function doPrint(ym){
+  const root=$('#print-root');root.innerHTML=monthPrintHtml(ym);closeModal();
+  const titre=document.title;document.title=`Planning back office ${ym}`;
+  const fin=()=>{document.title=titre;root.innerHTML=''};
+  window.addEventListener('afterprint',fin,{once:true});
+  setTimeout(()=>{try{window.print()}catch(e){toast("L'impression n'est pas disponible ici.");fin()}},80);
+}
 /* ---------- copie texte ---------- */
 function weekText(){
   const m=ui.week,days=weekDays(m),plan=compute(m,addDays(m,4)),C=byId(),ts=taches();
@@ -1557,6 +1644,8 @@ document.addEventListener('click',e=>{
   switch(a){
     case 'seed':seedDefaults();break;
     case 'sync':openSync();break;
+    case 'printm':openPrint();break;
+    case 'doprint':doPrint($('#pm-mois').value);break;
     case 'tk':{const d=b.dataset.d,t=b.dataset.t;tick(d,t,!journal(d).done?.[t]);break}
     case 'export':exportFile();break;
     case 'syncnow':syncNow('bouton').then(()=>{closeModal();toast(gh.state==='ok'?'Synchronisé.':gh.msg||'Synchro en attente.')});break;

@@ -249,5 +249,17 @@ test('règles du lundi : souples, la personne passe quand même si elle est seul
   const p = compute('2026-10-05', '2026-10-12');
   assert.deepEqual(dutyIds(p['2026-10-12']), ['c1'], 'c1 seul présent');
 });
+test('PDF du mois : grille complète, férié, absents et totaux', () => {
+  const E2 = globalThis.__t;
+  state.absences = { a: { collab: 'c2', du: '2026-11-17', au: '2026-11-17', type: 'formation', portion: 'journee' } };
+  const html = E2.monthPrintHtml('2026-11');
+  assert.match(html, /Planning back office · novembre 2026/);
+  const lignes = (html.match(/<tbody><tr>/g) || []).length + (html.match(/<\/tr><tr>/g) || []).length;
+  assert.ok((html.match(/class="pm-who"/g) || []).length >= 19, 'une personne par jour ouvré');
+  assert.match(html, /Férié · Armistice/);
+  assert.match(html, /Absents : Collaborateur 2 – Formation/);
+  assert.match(html, /Jours de back office/);
+  assert.ok(lignes >= 5);
+});
 for (const [name, fn] of pending) { reset(); await fn(); n++; console.log('ok -', name); }
 console.log(`\n${n} tests réussis`);

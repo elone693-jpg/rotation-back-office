@@ -39,6 +39,12 @@ Au premier lancement : *Activer la synchro*, puis coller la clé d'accès GitHub
 - La comparaison ignore l'ordre des clés, pour éviter que deux appareils se renvoient le fichier sans fin.
 - **Copie iCloud (manuel)** : *Synchro › Copie de sauvegarde dans iCloud Drive*.
 
+## Planning mensuel en PDF
+
+Bouton **PDF du mois** dans le Planning : choisir le mois, puis **Imprimer / PDF**. La page A4 en paysage contient une ligne par semaine (personne de back office, absents, jours fériés, échanges, doublures) et les totaux du mois par collaborateur.
+- **Mac** : dans la fenêtre d'impression, menu PDF › *Enregistrer au format PDF*.
+- **iPhone** : dans la fenêtre d'impression, *Partager* › *Enregistrer dans Fichiers*.
+
 ## Fonctionnement de la rotation
 
 - **File d'attente** : chaque jour, la première personne de la file présente toute la journée prend le back office, puis repasse en fin de file. Une personne absente garde sa place et passe à son retour.
