@@ -52,7 +52,7 @@ Plan du rez-de-chaussée, numéroté dans le sens horaire à partir du bureau à
 
 - **Back office** : Ouvert 03, occupé par la personne de back office du jour.
 - **Hors rotation** : Fermés 04 et 05, Ouvert 05.
-- **Jusqu'à 4 présents** : bureaux ③ ④ ⑤ ⑥, l'un reste libre. **Au-delà** : ① et ② s'ajoutent.
+- **Priorité aux bureaux fermés** ③ Fermé 01, ⑥ Fermé 02, ⑤ Fermé 03. S'il y a plus de collaborateurs à placer, la rotation s'étend à ④ Ouvert 04, puis ① Ouvert 02, puis ② Ouvert 01. Les bureaux tournent toujours dans le sens horaire.
 - **Rythme** (réglage `bureauxRythme`) : chaque semaine (on avance d'un cran le lundi) ou chaque jour.
 - Seuls les présents comptent (absences enregistrées), et deux personnes ne partagent jamais un bureau : on prend le suivant libre dans le sens horaire.
 - **PDF du mois** : grille des occupants par jour, puis nombre de jours de chacun dans chaque bureau.

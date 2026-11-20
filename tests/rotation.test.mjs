@@ -269,16 +269,17 @@ test('bureaux : BO à l\'Ouvert 03, un bureau par personne, prioritaires jusqu\'
     const occ = Object.values(x.desks);
     assert.equal(new Set(occ).size, occ.length, `${d} : personne en double`);
     assert.ok(!x.desks.F4 && !x.desks.F5 && !x.desks.O5, 'bureaux hors rotation jamais attribués');
-    if (x.presents <= 4) assert.ok(!x.desks.O1 && !x.desks.O2, `${d} : Ouverts 01/02 seulement au-delà de 4`);
+    const autres = Object.keys(x.desks).filter(k => k !== 'O3');
+    if (autres.length <= 3) assert.ok(autres.every(k => ['F1', 'F2', 'F3'].includes(k)), `${d} : bureaux fermés 01-02-03 en priorité`);
     assert.equal(occ.length, x.presents, `${d} : chaque présent a un bureau`);
   }
 });
-test('bureaux : au-delà de 4 présents, les Ouverts 01 et 02 entrent dans la rotation', () => {
+test('bureaux : avec 6 présents, la rotation s\'étend à l\'Ouvert 04 puis à l\'Ouvert 02', () => {
   const E2 = globalThis.__t;
   state.equipe.c5 = { ...state.equipe.c5, actif: true };
   state.equipe.c6 = { nom: 'Collaborateur 6', couleur: 6, actif: true, ordre: 6 };
   const dp = E2.deskPlan('2026-10-05', '2026-10-09');
-  for (const x of Object.values(dp)) { assert.equal(x.presents, 6); assert.deepEqual(x.pool, E2.ROT); assert.equal(Object.keys(x.desks).length, 6); }
+  for (const x of Object.values(dp)) { assert.equal(x.presents, 6); assert.deepEqual(x.pool, ['O2', 'F1', 'O4', 'F3', 'F2']); assert.equal(Object.keys(x.desks).length, 6); }
 });
 test('bureaux : rythme hebdomadaire, même bureau toute la semaine puis un cran dans le sens horaire', () => {
   const E2 = globalThis.__t;
@@ -312,6 +313,24 @@ test('bureaux : une absence libère le bureau, PDF mensuel complet', () => {
   assert.match(html, /Férié · Armistice/);
   assert.ok((html.match(/class="pb-row pb-bo"/g) || []).length >= 19, 'un BO par jour ouvré');
   ui.bDay = '2026-11-17'; assert.match(E2.vBureaux(), /Plan du rez-de-chaussée/);
+});
+test('bureaux : fermés 01-02-03 d\'abord, puis Ouvert 04, puis Ouverts 02 et 01', () => {
+  const E2 = globalThis.__t;
+  let prochain = 5;
+  const ajoute = n => { for (let k = 0; k < n; k++, prochain++) state.equipe['c' + prochain] = { nom: 'Collaborateur ' + prochain, couleur: prochain, actif: true, ordre: prochain }; };
+  // 4 présents = BO + 3 : seulement les fermés
+  let x = Object.values(E2.deskPlan('2026-10-05', '2026-10-05'))[0];
+  assert.deepEqual(Object.keys(x.desks).filter(k => k !== 'O3').sort(), ['F1', 'F2', 'F3']);
+  // 5 présents = BO + 4 : + Ouvert 04
+  ajoute(1); x = Object.values(E2.deskPlan('2026-10-05', '2026-10-05'))[0];
+  assert.deepEqual(Object.keys(x.desks).filter(k => k !== 'O3').sort(), ['F1', 'F2', 'F3', 'O4']);
+  // 6 présents : + Ouvert 02 ; 7 présents : + Ouvert 01
+  ajoute(2); x = Object.values(E2.deskPlan('2026-10-05', '2026-10-05'))[0];
+  assert.deepEqual(Object.keys(x.desks).filter(k => k !== 'O3').sort(), ['F1', 'F2', 'F3', 'O1', 'O2', 'O4']);
+  // 3 présents = BO + 2 : deux bureaux fermés, un fermé libre
+  state.equipe = { c1: state.equipe.c1, c2: state.equipe.c2, c3: state.equipe.c3 };
+  x = Object.values(E2.deskPlan('2026-10-05', '2026-10-05'))[0];
+  assert.ok(Object.keys(x.desks).filter(k => k !== 'O3').every(k => ['F1', 'F2', 'F3'].includes(k)));
 });
 for (const [name, fn] of pending) { reset(); await fn(); n++; console.log('ok -', name); }
 console.log(`\n${n} tests réussis`);
