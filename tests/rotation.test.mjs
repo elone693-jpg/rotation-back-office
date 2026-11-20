@@ -281,26 +281,32 @@ test('bureaux : avec 6 présents, la rotation s\'étend à l\'Ouvert 04 puis à 
   const dp = E2.deskPlan('2026-10-05', '2026-10-09');
   for (const x of Object.values(dp)) { assert.equal(x.presents, 6); assert.deepEqual(x.pool, ['O2', 'F1', 'O4', 'F3', 'F2']); assert.equal(Object.keys(x.desks).length, 6); }
 });
-test('bureaux : rythme hebdomadaire, même bureau toute la semaine puis un cran dans le sens horaire', () => {
+test('bureaux : rythme hebdomadaire, 3 personnes gardent leur bureau, un cran dans le sens horaire chaque semaine', () => {
   const E2 = globalThis.__t;
   E2.withRythme('semaine', () => {
-    const dp = E2.deskPlan('2026-10-05', '2026-10-16');
-    const desk = (d, id) => Object.entries(dp[d].desks).find(([, v]) => v === id)?.[0];
-    // c1 hors jours de back office : même bureau du lundi au vendredi
-    const s1 = ['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09'].map(d => desk(d, 'c1')).filter(x => x && x !== 'O3');
-    assert.equal(new Set(s1).size, 1, 'même bureau dans la semaine');
-    const s2 = ['2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15', '2026-10-16'].map(d => desk(d, 'c1')).filter(x => x && x !== 'O3');
-    const pool = dp['2026-10-05'].pool;
-    assert.notEqual(s1[0], s2[0], 'change la semaine suivante');
-    assert.equal(pool[(pool.indexOf(s1[0]) + 1) % pool.length], s2[0], 'un cran dans le sens horaire');
+    const dp = E2.deskPlan('2026-10-05', '2026-12-18');
+    const jours = Object.keys(dp).sort(), semaines = [];
+    for (const d of jours) { const l = semaines[semaines.length - 1]; const m = new Date(d + 'T12:00'); m.setDate(m.getDate() - ((m.getDay() + 6) % 7)); const k = m.toISOString().slice(0, 10); if (l && l.k === k) l.push(d); else { const n = [d]; n.k = k; semaines.push(n); } }
+    const bureauDe = (d, id) => Object.entries(dp[d].desks).find(([k, v]) => v === id && k !== 'O3')?.[0];
+    const fixes = sem => Object.fromEntries(['c1', 'c2', 'c3', 'c4'].map(id => { const b = new Set(sem.map(d => bureauDe(d, id)).filter(Boolean)); return [id, b.size === 1 ? [...b][0] : null]; }));
+    const f = semaines.map(fixes);
+    f.forEach((x, w) => assert.ok(Object.values(x).filter(Boolean).length >= 3, `semaine du ${semaines[w].k} : au moins 3 personnes gardent leur bureau`));
+    const pool = dp['2026-12-01'].pool;
+    let avance = 0;
+    for (let w = 0; w + 1 < f.length; w++) for (const id of ['c1', 'c2', 'c3', 'c4']) if (f[w][id] && f[w + 1][id] && semaines[w].length === 5 && semaines[w + 1].length === 5) { assert.equal(pool[(pool.indexOf(f[w][id]) + 1) % pool.length], f[w + 1][id], `${semaines[w].k} : ${id} avance d'un cran dans le sens horaire`); avance++; }
+    assert.ok(avance >= 2);
+    // le rôle de celui qui change de bureau dans la semaine tourne entre tous
+    const mobiles = new Set(f.flatMap(x => Object.entries(x).filter(([, b]) => !b).map(([id]) => id)));
+    assert.ok(mobiles.size >= 3, `toujours les mêmes à changer de bureau : ${[...mobiles].join(', ')}`);
   });
 });
-test('bureaux : rythme quotidien, le bureau change chaque jour', () => {
+test('bureaux : rythme quotidien, le bureau change au fil des jours', () => {
   const E2 = globalThis.__t;
   E2.withRythme('jour', () => {
     const dp = E2.deskPlan('2026-10-05', '2026-10-09');
     const occ = Object.values(dp).map(x => Object.entries(x.desks).find(([k, v]) => v === 'c1' && k !== 'O3')?.[0]).filter(Boolean);
-    for (let i = 1; i < occ.length; i++) assert.notEqual(occ[i], occ[i - 1]);
+    assert.ok(new Set(occ).size >= 2, 'le bureau change au fil de la semaine');
+    let suite = 1; for (let i = 1; i < occ.length; i++) { suite = occ[i] === occ[i - 1] ? suite + 1 : 1; assert.ok(suite <= 2, 'jamais 3 jours de suite au même bureau'); }
   });
 });
 test('bureaux : une absence libère le bureau, PDF mensuel complet', () => {

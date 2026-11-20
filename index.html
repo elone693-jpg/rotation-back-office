@@ -1693,12 +1693,13 @@ function deskPlan(from,to){
     const pool=ROT.filter(x=>ouverts.includes(x));
     const n=pool.length,desks={},sans=[];
     if(bo)desks.O3=bo;
-    const pris=new Set();
-    for(const c of autres.slice().sort((a,b)=>rank[a.id]-rank[b.id])){
-      if(pris.size>=n){sans.push(c.id);continue}
-      let i=((rank[c.id]+k)%n+n)%n;while(pris.has(i))i=(i+1)%n;
-      pris.add(i);desks[pool[i]]=c.id;
-    }
+    // Place « maison » de chacun sur un cycle de la taille de l'équipe : elle avance d'un cran par période.
+    // Ceux dont la place tombe dans les bureaux ouverts ce jour-là les gardent ; les autres (rôle qui tourne
+    // d'une période à l'autre) prennent les bureaux libérés par le back office ou une absence, dans le sens horaire.
+    const T=Math.max(team.length,n),home=c=>((rank[c.id]+k)%T+T)%T;
+    const pris=new Set(),flottants=[];
+    for(const c of autres.slice().sort((a,b)=>home(a)-home(b))){const h=home(c);if(h<n&&!pris.has(h)){pris.add(h);desks[pool[h]]=c.id}else flottants.push(c)}
+    for(const c of flottants){let i=0;while(i<n&&pris.has(i))i++;if(i>=n){sans.push(c.id);continue}pris.add(i);desks[pool[i]]=c.id}
     out[d]={desks,pool,bo,sans,presents:presents.length,absents:P.absents};
   }
   return out;
