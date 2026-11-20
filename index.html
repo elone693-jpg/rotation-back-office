@@ -522,6 +522,50 @@ details.icloud summary{cursor:pointer;font-weight:600;font-size:.88rem;color:var
   .pm-sum th{background:#eef4f5;font-weight:700}
   .pm-dot{display:inline-block;width:7pt;height:7pt;border-radius:50%;background:var(--h);margin-right:5pt;vertical-align:middle}
 }
+.pl-panel{gap:10px}
+.plan-svg{width:100%;height:auto;display:block;max-width:900px;margin:0 auto;font-family:var(--font)}
+.pl-wall{fill:var(--surface-2);stroke:var(--line);stroke-width:2}
+.pl-room rect{fill:var(--surface);stroke:var(--line);stroke-width:1.5;stroke-dasharray:6 5}
+.pl-room-l{fill:var(--muted);font-size:20px;font-weight:600}
+.pl-entree rect{fill:var(--brand-red)}
+.pl-entree text{fill:#fff;font-size:15px;font-weight:700}
+.pl-desk rect{fill:var(--surface);stroke:var(--line);stroke-width:2}
+.pl-num{font-size:26px;font-weight:800;fill:var(--accent)}
+.pl-name{font-size:19px;font-weight:700;fill:var(--ink)}
+.pl-who{font-size:24px;font-weight:800;fill:var(--ink)}
+.pl-sub{font-size:17px;fill:var(--muted);font-style:italic}
+.pl-sm{font-size:14px}
+.pl-hors .pl-name{font-size:15px}
+.pl-occ rect{fill:color-mix(in oklab,var(--h) 18%,var(--surface));stroke:var(--h);stroke-width:3}
+.pl-bo rect{fill:var(--accent-soft);stroke:var(--accent);stroke-width:4}
+.pl-bo .pl-num{fill:var(--accent)}
+.pl-bo .pl-who{fill:var(--accent)}
+.pl-libre rect{fill:var(--surface);stroke:var(--accent);stroke-width:2;stroke-dasharray:8 6}
+.pl-renfort rect{fill:var(--surface-2);stroke:var(--line);stroke-dasharray:4 4}
+.pl-renfort .pl-num{fill:var(--muted)}
+.pl-hors rect{fill:var(--surface-2);stroke:var(--line)}
+.pl-hors .pl-num,.pl-hors .pl-name{fill:var(--muted)}
+.pl-hach{stroke:var(--line);stroke-width:3}
+.pl-arrow{fill:none;stroke:var(--brand-red);stroke-width:3;stroke-dasharray:2 8;stroke-linecap:round;opacity:.7}
+.pl-arrow-h{fill:var(--brand-red)}
+.pl-legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.8rem;color:var(--muted)}
+.pl-legend span{display:inline-flex;align-items:center;gap:6px}
+.lg{width:14px;height:14px;border-radius:4px;display:inline-block;border:2px solid var(--line);background:var(--surface)}
+.lg.bo{background:var(--accent-soft);border-color:var(--accent)}
+.lg.occ{background:color-mix(in oklab,var(--c1) 18%,var(--surface));border-color:var(--c1)}
+.lg.libre{border-style:dashed;border-color:var(--accent)}
+.lg.renfort{background:var(--surface-2);border-style:dotted}
+.lg.hors{background:repeating-linear-gradient(45deg,var(--surface-2) 0 3px,var(--line) 3px 5px)}
+.bx-n{display:inline-grid;place-items:center;min-width:26px;height:22px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-weight:800;font-size:.8rem;margin-right:4px}
+.bx-day{border:0;background:none;padding:0;cursor:pointer;font:inherit;font-weight:600;color:inherit}
+.bx-table{min-width:640px}
+@media print{
+  .pb-grid td{height:auto;min-height:60pt}
+  .pb-row{display:flex;gap:4pt;align-items:baseline;font-size:8pt;line-height:1.25;border-left:2.5pt solid var(--h);padding-left:3pt;margin:1pt 0;background:color-mix(in srgb,var(--h) 10%,#fff)}
+  .pb-row b{min-width:14pt;color:#0b4a5c}
+  .pb-row.pb-bo{background:#dff2f4;border-left-color:#009cac;font-weight:700}
+  .pm-sum th,.pm-sum td{font-size:7.5pt}
+}
 </style>
 </head>
 <body>
@@ -1105,7 +1149,7 @@ function render(){
   if(ae&&v.contains(ae)&&/INPUT|SELECT|TEXTAREA/.test(ae.tagName)&&ae.type!=='checkbox'&&ae.type!=='radio'){renderPending=true;return}
   renderPending=false;
   renderTabs();renderStatus();renderHero();
-  const f={moi:vMoi,activite:vActivite,planning:vPlanning,equipe:vEquipe,absences:vAbsences,equite:vEquite,reglages:vReglages}[ui.tab]||vPlanning;
+  const f={moi:vMoi,bureaux:vBureaux,activite:vActivite,planning:vPlanning,equipe:vEquipe,absences:vAbsences,equite:vEquite,reglages:vReglages}[ui.tab]||vPlanning;
   v.innerHTML=f();
   scrollActiveTab();
   if(ui.tab==='absences')absImpact();
@@ -1123,7 +1167,7 @@ if(typeof window!=='undefined'&&window.matchMedia){const mq=window.matchMedia('(
 function renderTabs(){
   const nAbs=Object.values(state.absences).filter(a=>a.au>=TODAY).length;
   const nTeam=collabs().filter(c=>inRotation(c,TODAY)).length;
-  const T=[['moi','Mon planning',''],['planning','Planning',''],['equipe','Équipe',nTeam],['absences','Absences',nAbs||''],['equite','Équité',''],['activite','Activité',''],['reglages','Tâches et réglages','']];
+  const T=[['moi','Mon planning',''],['planning','Planning',''],['bureaux','Bureaux',''],['equipe','Équipe',nTeam],['absences','Absences',nAbs||''],['equite','Équité',''],['activite','Activité',''],['reglages','Tâches et réglages','']];
   $('#tabs').innerHTML=T.map(([id,l,n])=>`<button role="tab" data-tab="${id}" aria-selected="${ui.tab===id}">${l}${n!==''?`<span class="n">${n}</span>`:''}</button>`).join('');
 }
 function renderHero(){
@@ -1609,6 +1653,156 @@ function doPrint(ym){
   window.addEventListener('afterprint',fin,{once:true});
   setTimeout(()=>{try{window.print()}catch(e){toast("L'impression n'est pas disponible ici.");fin()}},80);
 }
+/* ---------- rotation des bureaux du rez-de-chaussée ----------
+   Plan RDC : numérotation dans le sens horaire à partir du bureau à gauche près de l'entrée.
+   ① Ouvert 02 → ② Ouvert 01 → ③ Fermé 01 → ④ Ouvert 04 → ⑤ Fermé 03 → ⑥ Fermé 02 → ①
+   La personne de back office du jour occupe l'Ouvert 03. Hors rotation : Fermés 04 et 05, Ouvert 05.
+   Jusqu'à 4 présents : bureaux ③ ④ ⑤ ⑥ (un reste libre). Au-delà : ① et ② s'ajoutent.
+   Chaque collaborateur avance d'un bureau dans le sens horaire chaque semaine ou chaque jour (réglage),
+   en ne comptant que les présents ; deux personnes ne partagent jamais un bureau (on prend le suivant libre). */
+const DESKS={
+  O2:{nom:'Ouvert 02',n:1,x:150,y:40,w:250,h:150},
+  O1:{nom:'Ouvert 01',n:2,x:590,y:40,w:260,h:150},
+  F1:{nom:'Fermé 01',n:3,x:590,y:190,w:260,h:170},
+  O4:{nom:'Ouvert 04',n:4,x:400,y:560,w:150,h:150},
+  F3:{nom:'Fermé 03',n:5,x:400,y:340,w:190,h:220},
+  F2:{nom:'Fermé 02',n:6,x:400,y:190,w:190,h:150},
+  O3:{nom:'Ouvert 03',bo:true,x:150,y:190,w:250,h:170},
+  F4:{nom:'Fermé 04',hors:true,x:550,y:560,w:100,h:150},
+  F5:{nom:'Fermé 05',hors:true,x:650,y:560,w:100,h:150},
+  O5:{nom:'Ouvert 05',hors:true,x:750,y:560,w:100,h:150},
+};
+const ROT=['O2','O1','F1','O4','F3','F2'],PRIO=['F1','O4','F3','F2'];
+const NUM=['','①','②','③','④','⑤','⑥'];
+const deskLabel=id=>DESKS[id].bo?'BO':NUM[DESKS[id].n]||'';
+function rythmeBureaux(){return reglages().bureauxRythme==='jour'?'jour':'semaine'}
+function deskPlan(from,to){
+  const R=reglages(),start=monday(R.debut&&R.debut<from?R.debut:from);
+  const plan=compute(start,to),team=collabs().filter(c=>c.actif),rank=Object.fromEntries(team.map((c,i)=>[c.id,i]));
+  const rythme=rythmeBureaux(),out={};let jourIdx=-1;
+  for(const d of Object.keys(plan).sort()){
+    const P=plan[d];if(P.ferie)continue;jourIdx++;
+    if(d<from)continue;
+    const k=rythme==='jour'?jourIdx:Math.round((ordinal(monday(d))-ordinal(start))/7);
+    const presents=team.filter(c=>P.present.includes(c.id));
+    const bo=P.matin[0]||dutyIds(P)[0]||null;
+    const autres=presents.filter(c=>c.id!==bo);
+    const pool=presents.length>4?ROT:ROT.filter(x=>PRIO.includes(x));
+    const n=pool.length,desks={},sans=[];
+    if(bo)desks.O3=bo;
+    const pris=new Set();
+    for(const c of autres.slice().sort((a,b)=>rank[a.id]-rank[b.id])){
+      if(pris.size>=n){sans.push(c.id);continue}
+      let i=((rank[c.id]+k)%n+n)%n;while(pris.has(i))i=(i+1)%n;
+      pris.add(i);desks[pool[i]]=c.id;
+    }
+    out[d]={desks,pool,bo,sans,presents:presents.length,absents:P.absents};
+  }
+  return out;
+}
+
+/* ---------- plan schématique (SVG) ---------- */
+function planSvg(day,C){
+  const occ=day?day.desks:{},pool=day?day.pool:[];
+  const box=(x,y,w,h,label)=>`<g class="pl-room"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6"/><text x="${x+w/2}" y="${y+h/2+6}" text-anchor="middle" class="pl-room-l">${label}</text></g>`;
+  let s=`<svg viewBox="0 0 870 730" class="plan-svg" role="img" aria-label="Plan du rez-de-chaussée avec les bureaux et leurs occupants">
+    <defs><pattern id="hach" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="10" class="pl-hach"/></pattern>
+    <marker id="fl" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="pl-arrow-h"/></marker></defs>
+    <rect x="10" y="20" width="850" height="700" rx="10" class="pl-wall"/>
+    <g class="pl-entree"><rect x="660" y="6" width="120" height="26" rx="13"/><text x="720" y="24" text-anchor="middle">Entrée ↓</text></g>
+    ${box(20,40,130,320,'Hall')}${box(400,40,190,150,'Accueil')}
+    ${box(150,360,250,200,'Sanitaires')}${box(590,360,260,200,'Espace commun')}${box(20,560,380,150,'Détente')}`;
+  for(const [id,D] of Object.entries(DESKS)){
+    const who=occ[id],c=who&&C[who],used=D.bo||pool.includes(id);
+    const cls=D.hors?'pl-hors':D.bo?'pl-bo':used?(who?'pl-occ':'pl-libre'):'pl-renfort';
+    const cx=D.x+D.w/2;
+    s+=`<g class="pl-desk ${cls}"${c?` style="--h:${hue(c)}"`:''}><rect x="${D.x+4}" y="${D.y+4}" width="${D.w-8}" height="${D.h-8}" rx="10"/>${D.hors?`<rect x="${D.x+4}" y="${D.y+4}" width="${D.w-8}" height="${D.h-8}" rx="10" fill="url(#hach)"/>`:''}
+      <text x="${cx}" y="${D.y+36}" text-anchor="middle" class="pl-num">${D.hors?'✕':deskLabel(id)}</text>
+      <text x="${cx}" y="${D.y+62}" text-anchor="middle" class="pl-name">${esc(D.nom)}</text>
+      ${D.hors?`<text x="${cx}" y="${D.y+92}" text-anchor="middle" class="pl-sub pl-sm">hors</text><text x="${cx}" y="${D.y+112}" text-anchor="middle" class="pl-sub pl-sm">rotation</text>`:c?`<text x="${cx}" y="${D.y+D.h/2+38}" text-anchor="middle" class="pl-who">${esc(c.nom)}</text>`:`<text x="${cx}" y="${D.y+D.h/2+36}" text-anchor="middle" class="pl-sub">${used?'libre':'renfort'}</text>`}</g>`;
+  }
+  s+=`<path d="M 290 120 C 440 60, 560 60, 700 120" class="pl-arrow" marker-end="url(#fl)"/></svg>`;
+  return s;
+}
+
+/* ---------- onglet Bureaux ---------- */
+function vBureaux(){
+  if(isEmpty())return emptyState();
+  const C=byId();
+  const d=ui.bDay&&weekday(ui.bDay)<5?ui.bDay:nextWorkday(TODAY);
+  const m=monday(d),days=weekDays(m),dp=deskPlan(m,addDays(m,4)),day=dp[d];
+  const rythme=rythmeBureaux();
+  const order=['O3',...ROT];
+  const head=`<div class="toolbar">
+    <div class="weeknav"><button class="icon-btn" data-act="bday" data-n="-1" aria-label="Jour précédent">‹</button>
+      <div class="weeklabel"><span class="eyebrow">Semaine ${isoWeek(m)}</span><b>${DNL[weekday(d)]} ${longd(d)}</b></div>
+      <button class="icon-btn" data-act="bday" data-n="1" aria-label="Jour suivant">›</button>
+      ${d!==nextWorkday(TODAY)?'<button class="btn ghost" data-act="bday0">Aujourd\'hui</button>':''}</div>
+    <div class="row"><div class="seg" role="group" aria-label="Rythme de rotation"><button data-act="brythme" data-v="semaine" aria-pressed="${rythme==='semaine'}">Chaque semaine</button><button data-act="brythme" data-v="jour" aria-pressed="${rythme==='jour'}">Chaque jour</button></div>
+    <button class="btn" data-act="bprint">${narrow()?'PDF':'PDF du mois'}</button></div></div>`;
+  const info=day?(day.sans.length?`<span class="pill crit">${day.sans.length} sans bureau</span>`:'')+`<span class="pill">${day.presents} présent${day.presents>1?'s':''}</span><span class="pill ${day.pool.length>4?'warn':'ok'}">${day.pool.length>4?'Ouverts 01 et 02 en renfort (plus de 4 présents)':'Bureaux ③ ④ ⑤ ⑥'}</span>`:'<span class="pill warn">Jour férié</span>';
+  const legend=`<p class="pl-legend"><span><i class="lg bo"></i>Back office</span><span><i class="lg occ"></i>Occupé</span><span><i class="lg libre"></i>Libre</span><span><i class="lg renfort"></i>Renfort (plus de 4 présents)</span><span><i class="lg hors"></i>Hors rotation</span></p>`;
+  const table=`<div class="grid-wrap" style="margin-top:16px"><table class="plan bx-table"><thead><tr><th class="corner"><span class="eyebrow">Bureau</span></th>${days.map(x=>`<th class="${x===d?'today':''}"><button class="bx-day" data-act="bpick" data-d="${x}"><span class="dname">${DN[weekday(x)]}</span> <span class="dnum">${short(x)}</span></button></th>`).join('')}</tr></thead>
+    <tbody>${order.map(id=>`<tr class="sub"><th><span class="bx-n">${deskLabel(id)}</span> ${esc(DESKS[id].nom)}${DESKS[id].bo?'<span class="tmeta">Back office</span>':''}</th>${days.map(x=>{const y=dp[x];if(!y)return '<td class="off"></td>';const who=y.desks[id];return td(x,who?chip(C[who],'sm'):`<span class="muted" style="font-size:.78rem">${y.pool.includes(id)||DESKS[id].bo?'libre':'—'}</span>`)}).join('')}</tr>`).join('')}</tbody></table></div>`;
+  return `${head}<div class="summary" style="margin-top:10px">${info}</div>
+    <div class="panel pl-panel" style="margin-top:14px"><div class="section-title"><h3>Plan du rez-de-chaussée</h3><span class="muted" style="font-size:.82rem">Sens horaire : ① → ② → ③ → ④ → ⑤ → ⑥</span></div>${planSvg(day,C)}${legend}</div>
+    ${table}
+    <p class="muted" style="font-size:.82rem;margin-top:10px">${rythme==='semaine'?'Chacun garde son bureau toute la semaine et avance d\'un cran dans le sens horaire chaque lundi.':'Chacun avance d\'un bureau dans le sens horaire chaque jour ouvré.'} La personne de back office du jour s'installe à l'Ouvert 03. Les absences enregistrées libèrent le bureau, et personne ne partage un bureau. Touchez un jour du tableau pour l'afficher sur le plan.</p>`;
+}
+
+/* ---------- PDF mensuel des bureaux ---------- */
+function monthDeskPrintHtml(ym){
+  const [y,m]=ym.split('-').map(Number),first=`${ym}-01`,last=iso(new Date(y,m,0));
+  const start=monday(first),end=addDays(monday(last),4);
+  const dp=deskPlan(start,end),plan=compute(start,end),C=byId();
+  const nm=id=>esc(C[id]?.nom||'?');
+  const weeks=[];for(let w=start;w<=end;w=addDays(w,7))weeks.push([0,1,2,3,4].map(i=>addDays(w,i)));
+  const cnt={};
+  const cell=d=>{
+    if(d.slice(0,7)!==ym)return `<td class="pm-out"><span class="pm-d">${+d.slice(8)}</span></td>`;
+    const P=plan[d];if(P.ferie)return `<td class="pm-fer"><span class="pm-d">${+d.slice(8)}</span><span class="pm-ferl">Férié · ${esc(P.ferie)}</span></td>`;
+    const x=dp[d];
+    const rows=['O3',...ROT].filter(id=>x.desks[id]).map(id=>{const who=x.desks[id];(cnt[who]??={})[id]=(cnt[who][id]||0)+1;
+      return `<div class="pb-row${DESKS[id].bo?' pb-bo':''}" style="--h:${hue(C[who])}"><b>${deskLabel(id)}</b><span>${nm(who)}</span></div>`}).join('');
+    const abs=x.absents.length?`<div class="pm-abs">Absents : ${x.absents.map(a=>nm(a.id)+(a.p!=='journee'?' ('+SLOTL[a.p].toLowerCase()+')':'')).join(', ')}</div>`:'';
+    return `<td><span class="pm-d">${+d.slice(8)}</span>${rows}${x.sans.length?`<div class="pm-none">Sans bureau : ${x.sans.map(nm).join(', ')}</div>`:''}${abs}</td>`;
+  };
+  const body=weeks.map(w=>`<tr>${w.map(cell).join('')}</tr>`).join('');
+  const order=['O3',...ROT];
+  const people=collabs().filter(c=>cnt[c.id]);
+  return `<div class="pm">
+    <header class="pm-h"><div><div class="pm-eyebrow">Plan de travail de l'agence · rez-de-chaussée</div><h1>Rotation des bureaux · ${MOISL[m-1]} ${y}</h1></div><div class="pm-meta">Rotation ${rythmeBureaux()==='jour'?'quotidienne':'hebdomadaire'} · imprimé le ${longd(TODAY)} ${TODAY.slice(0,4)}</div></header>
+    <p class="pm-prog"><b>BO</b> Ouvert 03 (back office) · ① Ouvert 02 · ② Ouvert 01 · ③ Fermé 01 · ④ Ouvert 04 · ⑤ Fermé 03 · ⑥ Fermé 02 &nbsp;—&nbsp; ① et ② seulement au-delà de 4 présents · hors rotation : Fermés 04 et 05, Ouvert 05</p>
+    <table class="pm-grid pb-grid"><thead><tr>${DNL.map(j=>`<th>${j}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>
+    <table class="pm-sum"><thead><tr><th>Collaborateur</th>${order.map(id=>`<th>${deskLabel(id)} ${esc(DESKS[id].nom)}</th>`).join('')}</tr></thead>
+      <tbody>${people.map(c=>`<tr><td><span class="pm-dot" style="--h:${hue(c)}"></span>${esc(c.nom)}</td>${order.map(id=>`<td>${cnt[c.id][id]||''}</td>`).join('')}</tr>`).join('')||'<tr><td>Aucune donnée.</td></tr>'}</tbody></table>
+  </div>`;
+}
+function openDeskPrint(){
+  const base=(ui.bDay||nextWorkday(TODAY)).slice(0,7),[y,m]=base.split('-').map(Number),opts=[];
+  for(let k=-2;k<=3;k++){const d=new Date(y,m-1+k,1);const v=`${d.getFullYear()}-${pad(d.getMonth()+1)}`;opts.push(`<option value="${v}" ${v===base?'selected':''}>${MOISL[d.getMonth()]} ${d.getFullYear()}</option>`)}
+  const ios=/iPhone|iPad|iPod/.test(navigator.userAgent);
+  $('#layer').innerHTML=`<div class="overlay" data-act="close"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="bpt">
+    <div><div class="eyebrow">PDF</div><h3 id="bpt">Rotation des bureaux du mois</h3>
+    <p class="muted" style="font-size:.86rem">Une page A4 en paysage : pour chaque jour, qui occupe quel bureau, puis le nombre de jours de chacun dans chaque bureau.</p></div>
+    <label class="f"><span>Mois</span><select id="bp-mois">${opts.join('')}</select></label>
+    <label class="f"><span>Rythme de rotation</span><select id="bp-rythme"><option value="semaine" ${rythmeBureaux()==='semaine'?'selected':''}>Chaque semaine</option><option value="jour" ${rythmeBureaux()==='jour'?'selected':''}>Chaque jour</option></select></label>
+    <p class="muted" style="font-size:.8rem">${ios?'Dans la fenêtre d\'impression : <b>Partager</b> › <b>Enregistrer dans Fichiers</b>.':'Dans la fenêtre d\'impression : <b>PDF › Enregistrer au format PDF</b>.'}</p>
+    <div class="row"><button class="btn" data-act="close">Annuler</button><button class="btn primary" data-act="bdoprint">Imprimer / PDF</button></div></div></div>`;
+}
+function withRythme(rythme,fn){
+  const R=state.reglages.general||{},avant=R.bureauxRythme;
+  state.reglages={...state.reglages,general:{...R,bureauxRythme:rythme}};
+  try{return fn()}finally{state.reglages={...state.reglages,general:{...state.reglages.general,bureauxRythme:avant}}}
+}
+function doDeskPrint(ym,rythme){
+  const html=withRythme(rythme,()=>monthDeskPrintHtml(ym));
+  const root=$('#print-root');root.innerHTML=html;closeModal();
+  const titre=document.title;document.title=`Bureaux ${ym}`;
+  const fin=()=>{document.title=titre;root.innerHTML=''};
+  window.addEventListener('afterprint',fin,{once:true});
+  setTimeout(()=>{try{window.print()}catch(e){toast("L'impression n'est pas disponible ici.");fin()}},80);
+}
 /* ---------- copie texte ---------- */
 function weekText(){
   const m=ui.week,days=weekDays(m),plan=compute(m,addDays(m,4)),C=byId(),ts=taches();
@@ -1645,6 +1839,12 @@ document.addEventListener('click',e=>{
     case 'seed':seedDefaults();break;
     case 'sync':openSync();break;
     case 'printm':openPrint();break;
+    case 'bday':{let x=ui.bDay&&weekday(ui.bDay)<5?ui.bDay:nextWorkday(TODAY);const n=+b.dataset.n;do{x=addDays(x,n)}while(weekday(x)>4);ui.bDay=x;render();break}
+    case 'bday0':ui.bDay=null;render();break;
+    case 'bpick':ui.bDay=b.dataset.d;render();break;
+    case 'brythme':{const R={...reglages(),bureauxRythme:b.dataset.v};put('reglages','general',R);toast(b.dataset.v==='jour'?'Rotation des bureaux : chaque jour.':'Rotation des bureaux : chaque semaine.');break}
+    case 'bprint':openDeskPrint();break;
+    case 'bdoprint':doDeskPrint($('#bp-mois').value,$('#bp-rythme').value);break;
     case 'doprint':doPrint($('#pm-mois').value);break;
     case 'tk':{const d=b.dataset.d,t=b.dataset.t;tick(d,t,!journal(d).done?.[t]);break}
     case 'export':exportFile();break;

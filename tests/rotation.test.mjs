@@ -261,5 +261,57 @@ test('PDF du mois : grille complète, férié, absents et totaux', () => {
   assert.match(html, /Jours de back office/);
   assert.ok(lignes >= 5);
 });
+test('bureaux : BO à l\'Ouvert 03, un bureau par personne, prioritaires jusqu\'à 4 présents', () => {
+  const E2 = globalThis.__t;
+  const dp = E2.deskPlan('2026-10-05', '2026-10-30');
+  for (const [d, x] of Object.entries(dp)) {
+    assert.equal(x.desks.O3, dutyIds(compute(d, d)[d])[0], `${d} : BO à l'Ouvert 03`);
+    const occ = Object.values(x.desks);
+    assert.equal(new Set(occ).size, occ.length, `${d} : personne en double`);
+    assert.ok(!x.desks.F4 && !x.desks.F5 && !x.desks.O5, 'bureaux hors rotation jamais attribués');
+    if (x.presents <= 4) assert.ok(!x.desks.O1 && !x.desks.O2, `${d} : Ouverts 01/02 seulement au-delà de 4`);
+    assert.equal(occ.length, x.presents, `${d} : chaque présent a un bureau`);
+  }
+});
+test('bureaux : au-delà de 4 présents, les Ouverts 01 et 02 entrent dans la rotation', () => {
+  const E2 = globalThis.__t;
+  state.equipe.c5 = { ...state.equipe.c5, actif: true };
+  state.equipe.c6 = { nom: 'Collaborateur 6', couleur: 6, actif: true, ordre: 6 };
+  const dp = E2.deskPlan('2026-10-05', '2026-10-09');
+  for (const x of Object.values(dp)) { assert.equal(x.presents, 6); assert.deepEqual(x.pool, E2.ROT); assert.equal(Object.keys(x.desks).length, 6); }
+});
+test('bureaux : rythme hebdomadaire, même bureau toute la semaine puis un cran dans le sens horaire', () => {
+  const E2 = globalThis.__t;
+  E2.withRythme('semaine', () => {
+    const dp = E2.deskPlan('2026-10-05', '2026-10-16');
+    const desk = (d, id) => Object.entries(dp[d].desks).find(([, v]) => v === id)?.[0];
+    // c1 hors jours de back office : même bureau du lundi au vendredi
+    const s1 = ['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09'].map(d => desk(d, 'c1')).filter(x => x && x !== 'O3');
+    assert.equal(new Set(s1).size, 1, 'même bureau dans la semaine');
+    const s2 = ['2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15', '2026-10-16'].map(d => desk(d, 'c1')).filter(x => x && x !== 'O3');
+    const pool = dp['2026-10-05'].pool;
+    assert.notEqual(s1[0], s2[0], 'change la semaine suivante');
+    assert.equal(pool[(pool.indexOf(s1[0]) + 1) % pool.length], s2[0], 'un cran dans le sens horaire');
+  });
+});
+test('bureaux : rythme quotidien, le bureau change chaque jour', () => {
+  const E2 = globalThis.__t;
+  E2.withRythme('jour', () => {
+    const dp = E2.deskPlan('2026-10-05', '2026-10-09');
+    const occ = Object.values(dp).map(x => Object.entries(x.desks).find(([k, v]) => v === 'c1' && k !== 'O3')?.[0]).filter(Boolean);
+    for (let i = 1; i < occ.length; i++) assert.notEqual(occ[i], occ[i - 1]);
+  });
+});
+test('bureaux : une absence libère le bureau, PDF mensuel complet', () => {
+  const E2 = globalThis.__t;
+  state.absences = { a: { collab: 'c2', du: '2026-11-16', au: '2026-11-20', type: 'conge', portion: 'journee' } };
+  const dp = E2.deskPlan('2026-11-16', '2026-11-20');
+  for (const x of Object.values(dp)) assert.ok(!Object.values(x.desks).includes('c2'));
+  const html = E2.monthDeskPrintHtml('2026-11');
+  assert.match(html, /Rotation des bureaux · novembre 2026/);
+  assert.match(html, /Férié · Armistice/);
+  assert.ok((html.match(/class="pb-row pb-bo"/g) || []).length >= 19, 'un BO par jour ouvré');
+  ui.bDay = '2026-11-17'; assert.match(E2.vBureaux(), /Plan du rez-de-chaussée/);
+});
 for (const [name, fn] of pending) { reset(); await fn(); n++; console.log('ok -', name); }
 console.log(`\n${n} tests réussis`);

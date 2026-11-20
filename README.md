@@ -45,6 +45,18 @@ Bouton **PDF du mois** dans le Planning : choisir le mois, puis **Imprimer / PDF
 - **Mac** : dans la fenêtre d'impression, menu PDF › *Enregistrer au format PDF*.
 - **iPhone** : dans la fenêtre d'impression, *Partager* › *Enregistrer dans Fichiers*.
 
+## Rotation des bureaux (onglet Bureaux)
+
+Plan du rez-de-chaussée, numéroté dans le sens horaire à partir du bureau à gauche près de l'entrée :
+① Ouvert 02 → ② Ouvert 01 → ③ Fermé 01 → ④ Ouvert 04 → ⑤ Fermé 03 → ⑥ Fermé 02 → ①.
+
+- **Back office** : Ouvert 03, occupé par la personne de back office du jour.
+- **Hors rotation** : Fermés 04 et 05, Ouvert 05.
+- **Jusqu'à 4 présents** : bureaux ③ ④ ⑤ ⑥, l'un reste libre. **Au-delà** : ① et ② s'ajoutent.
+- **Rythme** (réglage `bureauxRythme`) : chaque semaine (on avance d'un cran le lundi) ou chaque jour.
+- Seuls les présents comptent (absences enregistrées), et deux personnes ne partagent jamais un bureau : on prend le suivant libre dans le sens horaire.
+- **PDF du mois** : grille des occupants par jour, puis nombre de jours de chacun dans chaque bureau.
+
 ## Fonctionnement de la rotation
 
 - **File d'attente** : chaque jour, la première personne de la file présente toute la journée prend le back office, puis repasse en fin de file. Une personne absente garde sa place et passe à son retour.
@@ -67,7 +79,7 @@ Bouton **PDF du mois** dans le Planning : choisir le mois, puis **Imprimer / PDF
 | `absences/<id>` | `collab`, `du`, `au` (vide = sans fin), `type`, `portion` (`journee`, `matin` ou `apresmidi`), `note`, `rec` (récurrence, optionnel) |
 | `affectations/<lundi>` | `cells[date] = {ids, mode: 'echange' ou 'decale'}` |
 | `ordres/<date>` | `{depuis, ordre: [ids]}` |
-| `reglages/general` | `debut`, `feries`, `parJour`, `seuil` (effectif minimum), `pasDeSuite`, `lundiLundi`, `vendrediLundi` (règles activées par défaut) |
+| `reglages/general` | `debut`, `feries`, `parJour`, `seuil` (effectif minimum), `pasDeSuite`, `lundiLundi`, `vendrediLundi` (règles activées par défaut), `bureauxRythme` (`semaine` ou `jour`) |
 | `journal/<date>` | checklist du jour : `done[tacheId] = {at: 'HH:MM', by: userId}`, `vol[tacheId]` (volume traité), `cpt` `{md, mf}` (mails en début / fin de journée), `note`. Le compteur App. (appels émis) du Planning écrit dans `vol` de la tâche d'appels |
 
 Récurrence `rec` :
